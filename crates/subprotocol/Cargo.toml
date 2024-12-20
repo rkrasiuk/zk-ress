@@ -1,0 +1,16 @@
+[package]
+name = "ress-subprotocol"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-primitives.workspace = true
+reth-eth-wire.workspace = true
+reth-network.workspace = true
+reth-network-api.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+futures.workspace = true
+serde.workspace = true
+bincode.workspace = true
