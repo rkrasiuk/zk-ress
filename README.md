@@ -1,10 +1,25 @@
 # ress(reth stateless)
 
+## run: ress <> ress 
+
+```console
+RUST_LOG=info cargo run --bin ress 1
+```
+
+```console
+RUST_LOG=info cargo run --bin ress 2
+```
+
+
 ## component
 
-- [stateful](./crates/stateful/)
-- [stateless](./crates/stateless/)
-- [subprotocol](./crates/subprotocol/)
+- binary
+  - [reth](./bin/reth): run original reth client that added custom subprotocol to communicate with ress
+  - [ress](./bin/ress): run resss client - stateless execution client
+
+- crates
+  - [ress-core](./crates/ress): ress core 
+  - [subprotocol](./crates/subprotocol/)
 
 
 ## general flow
