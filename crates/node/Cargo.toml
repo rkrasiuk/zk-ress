@@ -1,0 +1,26 @@
+[package]
+name = "ress-node"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ress-common.workspace = true
+ress-subprotocol.workspace = true
+ress-network.workspace = true
+ress-vm.workspace = true
+ress-storage.workspace = true
+
+
+reth-node-ethereum.workspace = true
+alloy-primitives.workspace = true
+reth-beacon-consensus.workspace = true
+reth-chainspec.workspace = true
+reth-node-api.workspace = true
+reth-primitives.workspace = true
+reth-consensus.workspace = true
+reth-rpc-builder.workspace = true
+alloy-rpc-types-engine.workspace = true
+
+tokio.workspace = true
+tracing.workspace = true

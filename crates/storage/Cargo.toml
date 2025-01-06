@@ -1,0 +1,27 @@
+[package]
+name = "ress-storage"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ress-common.workspace = true
+ress-network.workspace = true
+ress-subprotocol.workspace = true
+
+alloy-primitives.workspace = true
+alloy-trie.workspace = true
+reth-trie.workspace = true
+reth-trie-sparse.workspace = true
+reth-chainspec.workspace = true
+reth-primitives.workspace = true
+reth-revm.workspace = true
+
+thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+rusqlite.workspace = true
+
+[dev-dependencies]
+tempfile = "3.3"
+tracing-subscriber.workspace = true
