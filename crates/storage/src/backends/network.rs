@@ -1,5 +1,6 @@
 use alloy_primitives::B256;
-use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
+use ress_primitives::witness::ExecutionWitness;
+use ress_subprotocol::connection::CustomCommand;
 use reth_revm::primitives::Bytecode;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
@@ -35,7 +36,7 @@ impl NetworkStorage {
     }
 
     /// request to get StateWitness from block hash
-    pub async fn get_witness(&self, block_hash: B256) -> Result<StateWitness, StorageError> {
+    pub async fn get_witness(&self, block_hash: B256) -> Result<ExecutionWitness, StorageError> {
         info!(target:"rlpx-subprotocol", "Request witness");
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.network_peer_conn

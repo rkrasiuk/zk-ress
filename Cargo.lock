@@ -5363,6 +5363,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ress-primitives"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "serde",
+]
+
+[[package]]
 name = "ress-storage"
 version = "0.1.0"
 dependencies = [
@@ -5370,6 +5378,7 @@ dependencies = [
  "alloy-trie",
  "ress-common",
  "ress-network",
+ "ress-primitives",
  "ress-subprotocol",
  "reth-chainspec",
  "reth-primitives",
@@ -5391,6 +5400,7 @@ dependencies = [
  "alloy-primitives",
  "bincode",
  "futures",
+ "ress-primitives",
  "reth-eth-wire",
  "reth-network",
  "reth-network-api",
