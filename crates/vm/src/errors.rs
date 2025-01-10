@@ -1,7 +1,9 @@
+use eyre::ErrReport;
 use ress_storage::errors::StorageError;
+use reth_provider::ProviderError;
 
 /// Database error type.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum WitnessStateProviderError {
     /// Block hash not found.
     #[error("block hash not found")]
@@ -14,6 +16,16 @@ pub enum WitnessStateProviderError {
     /// Error from StorageError
     #[error(transparent)]
     BytecodeProviderError(#[from] StorageError),
+
+    #[error(transparent)]
+    ErrReport(#[from] ErrReport),
+}
+
+// todo
+impl From<WitnessStateProviderError> for ProviderError {
+    fn from(_err: WitnessStateProviderError) -> Self {
+        ProviderError::UnsupportedProvider
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
