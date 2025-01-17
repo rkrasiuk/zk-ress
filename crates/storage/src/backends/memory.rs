@@ -47,6 +47,52 @@ impl MemoryStorage {
         }
     }
 
+    pub fn find_block_hash(&self, block_hash: BlockHash) -> bool {
+        let inner = self.inner.read();
+        inner
+            .canonical_hashes
+            .values()
+            .any(|&hash| hash == block_hash)
+    }
+
+    pub fn remove_oldest_block(&self) {
+        let mut inner = self.inner.write();
+
+        if let Some(&oldest_block_number) = inner.canonical_hashes.keys().min() {
+            let block_hash = inner.canonical_hashes.remove(&oldest_block_number);
+            if let Some(block_hash) = block_hash {
+                inner.headers.remove(&block_hash);
+            }
+        }
+    }
+
+    pub fn is_canonical_blocks_exist(&self, target_block: BlockNumber) -> bool {
+        let inner = self.inner.read();
+        (target_block.saturating_sub(255)..target_block).all(|block_number| {
+            inner.canonical_hashes.contains_key(&block_number)
+                && inner.headers.contains_key(
+                    inner
+                        .canonical_hashes
+                        .get(&block_number)
+                        .unwrap_or(&BlockHash::default()),
+                )
+        })
+    }
+
+    pub fn get_latest_block_hash(&self) -> Option<BlockHash> {
+        let inner = self.inner.read();
+        if let Some(&latest_block_number) = inner.canonical_hashes.keys().max() {
+            inner.canonical_hashes.get(&latest_block_number).copied()
+        } else {
+            None
+        }
+    }
+
+    pub fn overwrite_block_headers(&self, block_headers: HashMap<BlockHash, Header>) {
+        let mut inner = self.inner.write();
+        inner.headers = block_headers;
+    }
+
     pub fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
         let mut inner = self.inner.write();
         inner.canonical_hashes = block_hashes;
@@ -74,15 +120,12 @@ impl MemoryStorage {
         }
     }
 
-    pub fn get_block_hash(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<BlockHash>, StorageError> {
+    pub fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash, StorageError> {
         let inner = self.inner.read();
         if let Some(block_hash) = inner.canonical_hashes.get(&block_number) {
-            Ok(Some(*block_hash))
+            Ok(*block_hash)
         } else {
-            Ok(None)
+            Err(StorageError::BlockNotFound)
         }
     }
 

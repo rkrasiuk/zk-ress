@@ -14,6 +14,8 @@ ress-common.workspace = true
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
 alloy-rpc-types.workspace = true
+alloy-rpc-types-engine.workspace = true
+alloy-provider.workspace = true
 
 # reth
 reth-rpc-api.workspace = true
@@ -22,6 +24,7 @@ reth-network-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-engine-api.workspace = true
 reth-chainspec.workspace = true
+reth-consensus-debug-client.workspace = true
 
 # misc
 clap.workspace = true
@@ -34,6 +37,7 @@ rand.workspace = true
 futures.workspace = true
 parking_lot.workspace = true
 assert_matches.workspace = true
+dotenvy.workspace = true
 
 
 [dev-dependencies]

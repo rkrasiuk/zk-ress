@@ -42,13 +42,26 @@ impl Storage {
     }
 
     pub fn get_witness(&self, block_hash: B256) -> Result<ExecutionWitness, StorageError> {
-        self.network.get_witness(block_hash)
+        Ok(self.network.get_witness(block_hash)?)
+    }
+
+    pub fn remove_oldest_block(&self) {
+        self.memory.remove_oldest_block();
+    }
+
+    pub fn find_block_hash(&self, block_hash: BlockHash) -> bool {
+        self.memory.find_block_hash(block_hash)
     }
 
     /// set block hash and set block header
-    pub fn set_block(&self, block_hash: B256, header: Header) {
-        self.memory.set_block_hash(block_hash, header.number);
-        self.memory.set_block_header(block_hash, header);
+    pub fn set_block(&self, header: Header) {
+        self.memory
+            .set_block_hash(header.hash_slow(), header.number);
+        self.memory.set_block_header(header.hash_slow(), header);
+    }
+
+    pub fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {
+        self.memory.set_block_hash(block_hash, block_number);
     }
 
     /// overwrite block hashes mapping
@@ -56,25 +69,51 @@ impl Storage {
         self.memory.overwrite_block_hashes(block_hashes);
     }
 
-    pub fn get_block_hash(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<BlockHash>, StorageError> {
+    /// overwrite block headers mapping
+    pub fn overwrite_block_headers(&self, block_headers: HashMap<BlockHash, Header>) {
+        self.memory.overwrite_block_headers(block_headers);
+    }
+
+    pub fn overwrite_blocks(&self, block_headers: Vec<Header>) {
+        let mut block_hashes = HashMap::new();
+        let mut block_headers_map = HashMap::new();
+
+        for header in block_headers {
+            let block_number = header.number;
+            let block_hash = header.hash_slow();
+            block_hashes.insert(block_number, block_hash);
+            block_headers_map.insert(block_hash, header);
+        }
+
+        self.overwrite_block_hashes(block_hashes);
+        self.overwrite_block_headers(block_headers_map);
+    }
+
+    pub fn is_canonical_blocks_exist(&self, target_block: BlockNumber) -> bool {
+        self.memory.is_canonical_blocks_exist(target_block)
+    }
+
+    pub fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash, StorageError> {
         self.memory.get_block_hash(block_number)
     }
 
     /// get bytecode from disk -> fallback network
-    pub fn code_by_hash(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
+    pub fn code_by_hash(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
         let disk = self.disk.lock().unwrap();
         if let Some(bytecode) = disk.get_account_code(code_hash)? {
-            return Ok(Some(bytecode));
+            return Ok(bytecode);
         }
 
-        if let Some(bytecode) = self.network.get_account_code(code_hash)? {
+        let latest_block_hash = self.memory.get_latest_block_hash();
+
+        if let Some(bytecode) = self.network.get_account_code(
+            latest_block_hash.expect("need latest block hash"),
+            code_hash,
+        )? {
             disk.update_account_code(code_hash, bytecode.clone())?;
-            return Ok(Some(bytecode));
+            return Ok(bytecode);
         }
-        Ok(None)
+        Err(StorageError::NoCodeForCodeHash)
     }
 
     pub fn get_block_header(

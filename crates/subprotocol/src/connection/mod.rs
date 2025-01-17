@@ -1,7 +1,9 @@
+use crate::protocol::proto::BytecodeRequest;
+
 use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind, NodeType};
 use alloy_primitives::{bytes::BytesMut, BlockHash, B256};
 use futures::{Stream, StreamExt};
-use ress_common::utils::read_example_witness;
+use ress_common::utils::{get_witness_path, read_example_witness};
 use ress_primitives::witness::ExecutionWitness;
 use reth_eth_wire::multiplex::ProtocolConnection;
 use reth_revm::primitives::Bytecode;
@@ -33,6 +35,8 @@ pub enum CustomCommand {
     },
     /// Get bytecode for specific codehash
     Bytecode {
+        /// target block hash that we want to get bytecode from
+        block_hash: BlockHash,
         /// target code hash that we want to get bytecode from
         code_hash: B256,
         /// The response will be sent to this channel.
@@ -91,12 +95,16 @@ impl Stream for CustomRlpxConnection {
                         ))
                     }
                     CustomCommand::Bytecode {
+                        block_hash,
                         code_hash,
                         response,
                     } => {
                         this.pending_bytecode = Some(response);
                         Poll::Ready(Some(
-                            CustomRlpxProtoMessage::bytecode_req(code_hash).encoded(),
+                            CustomRlpxProtoMessage::bytecode_req(BytecodeRequest::new(
+                                code_hash, block_hash,
+                            ))
+                            .encoded(),
                         ))
                     }
                 };
@@ -126,14 +134,13 @@ impl Stream for CustomRlpxConnection {
                     return Poll::Ready(None);
                 }
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
-                    // TODO: get witness from other full node peers, rn hardcoded
+                    // TODO: get witness from other full node peers, rn from file
                     debug!("requested witness for blockhash: {}", block_hash);
-                    let witness =
-                        read_example_witness("./fixtures/witness/mainnet-21592411.json").unwrap();
+                    let witness = read_example_witness(&get_witness_path(block_hash))
+                        .expect("witness should exist");
                     let state_witness = witness.state;
 
-                    let execution_witness =
-                        ExecutionWitness::new(state_witness, Default::default());
+                    let execution_witness = ExecutionWitness::new(state_witness);
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::witness_res(execution_witness).encoded(),
                     ));
@@ -144,14 +151,17 @@ impl Stream for CustomRlpxConnection {
                     }
                     continue;
                 }
-                CustomRlpxProtoMessageKind::BytecodeReq(code_hash) => {
-                    // TODO: get bytecode from other full node peers, rn hardcoded
-                    debug!("requested bytes for codehash: {}", code_hash);
-                    let witness =
-                        read_example_witness("./fixtures/witness/mainnet-21592411.json").unwrap();
+                CustomRlpxProtoMessageKind::BytecodeReq(msg) => {
+                    // TODO: get bytecode from other full node peers, rn from file
+                    debug!(
+                        "requested bytes for codehash: {}, blockhash: {}",
+                        msg.code_hash, msg.block_hash
+                    );
+                    let witness = read_example_witness(&get_witness_path(msg.block_hash))
+                        .expect("witness should exist");
                     let code_bytes = witness
                         .codes
-                        .get(&code_hash)
+                        .get(&msg.code_hash)
                         .expect("no bytes found from codehash");
                     let bytecode: Bytecode = Bytecode::LegacyRaw(code_bytes.clone());
                     return Poll::Ready(Some(

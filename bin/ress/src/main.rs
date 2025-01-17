@@ -1,17 +1,16 @@
-use alloy_primitives::{b256, B256};
-use alloy_rpc_types::engine::ExecutionPayloadV3;
+use alloy_provider::{network::AnyNetwork, Provider, ProviderBuilder};
+use alloy_rpc_types::BlockTransactionsKind;
 use clap::Parser;
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 use ress_common::test_utils::TestPeers;
-use ress_common::utils::{read_example_header, read_example_payload};
 use ress_node::Node;
 use reth_chainspec::MAINNET;
+use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_network::NetworkEventListenerProvider;
 use reth_node_ethereum::EthEngineTypes;
-use reth_rpc_api::EngineApiClient;
 use std::net::TcpListener;
-use std::str::FromStr;
-use tracing::{debug, info};
+use std::sync::Arc;
+use tracing::info;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -24,6 +23,8 @@ struct Args {
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt::init();
+    dotenvy::dotenv()?;
+
     // =================================================================
 
     // <for testing purpose>
@@ -41,32 +42,57 @@ async fn main() -> eyre::Result<()> {
 
     // ============================== DEMO ==========================================
 
-    // for demo, we first need to dump 21592411 - 256 ~ 21592411 blocks to storage before send msg
-    let parent_block_hash =
-        B256::from_str("77b8cb14ead0df5a77367c14c9f0ed7248e26bbc43145443877266cdbb86e332").unwrap();
-    let header = read_example_header("./fixtures/header/mainnet-21592410.json")?;
-    node.storage.set_block(parent_block_hash, header);
+    // initalize necessary headers/hashes
+    // todo: there could be gap between new payload and this prefetching latest block number
+    let rpc_block_provider = ProviderBuilder::new()
+        .network::<AnyNetwork>()
+        .on_http(std::env::var("RPC_URL").expect("need rpc").parse()?);
+    let latest_block_number = rpc_block_provider.get_block_number().await?;
+    info!(
+        "✨ prefetching 256 block number from {} to {}..",
+        latest_block_number - 255,
+        latest_block_number
+    );
 
-    // for demo, we imagine consensus client send block 21592411 payload
-    let new_payload: ExecutionPayloadV3 =
-        read_example_payload("./fixtures/payload/mainnet-21592411.json")?;
-    let versioned_hashes = vec![];
-    let parent_beacon_block_root =
-        b256!("b4f0f62dd56d57c266332be9a87eb3332be4e22198f8124ce44660b1454dab25");
-    // Send new events to execution client -> called `Result::unwrap()` on an `Err` value: RequestTimeout
+    // ================ PARALLEL FETCH + STORE HEADERS ================
+    let range = (latest_block_number - 255)..=latest_block_number;
+
+    // Parallel download
+    let headers = futures::stream::iter(range)
+        .map(|block_number| {
+            let provider = rpc_block_provider.clone();
+            async move {
+                let block_header = provider
+                    .get_block_by_number(block_number.into(), BlockTransactionsKind::Hashes)
+                    .await?
+                    .expect("no block fetched from rpc")
+                    .header
+                    .clone()
+                    .into_consensus()
+                    .into_header_with_defaults();
+                Ok::<_, eyre::Report>(block_header)
+            }
+        })
+        .buffer_unordered(25)
+        .try_collect::<Vec<_>>()
+        .await?;
+    let storage = node.storage;
+    storage.overwrite_blocks(headers);
+    assert!(storage.is_canonical_blocks_exist(latest_block_number));
+
+    // ================ CONSENSUS CLIENT ================
+
+    let ws_block_provider =
+        RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need ws rpc").parse()?);
+    let rpc_consensus_client =
+        DebugConsensusClient::new(node.authserver_handler, Arc::new(ws_block_provider));
     tokio::spawn(async move {
-        let _ = EngineApiClient::<EthEngineTypes>::new_payload_v3(
-            &node.authserver_handler.http_client(),
-            new_payload,
-            versioned_hashes,
-            parent_beacon_block_root,
-        )
-        .await;
+        info!("💨 running debug consensus client");
+        rpc_consensus_client.run::<EthEngineTypes>().await;
     });
 
     // =================================================================
 
-    // interact with the network
     let mut events = node.p2p_handler.network_handle.event_listener();
     while let Some(event) = events.next().await {
         info!(target: "ress","Received event: {:?}", event);
@@ -80,11 +106,10 @@ fn is_ports_alive(local_node: TestPeers) {
         Ok(_listener) => false,
         Err(_) => true,
     };
-    debug!(target: "ress","auth server is_alive: {:?}", is_alive);
-
+    info!(target: "ress","auth server is_alive: {:?}", is_alive);
     let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
         Ok(_listener) => false,
         Err(_) => true,
     };
-    debug!(target: "ress","network is_alive: {:?}", is_alive);
+    info!(target: "ress","network is_alive: {:?}", is_alive);
 }
