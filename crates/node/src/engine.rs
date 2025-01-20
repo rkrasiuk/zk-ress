@@ -3,9 +3,12 @@ use alloy_provider::network::primitives::BlockTransactionsKind;
 use alloy_provider::network::AnyNetwork;
 use alloy_provider::Provider;
 use alloy_provider::ProviderBuilder;
+use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
+use alloy_trie::nodes::TrieNode;
+use alloy_trie::TrieAccount;
 use jsonrpsee_http_client::HttpClientBuilder;
 use ress_common::utils::get_witness_path;
 use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
@@ -165,11 +168,18 @@ impl ConsensusEngine {
                 let payload_header = block.sealed_header();
                 self.validate_header(&block, total_difficulty, parent_header);
 
-                info!("🟢 new payload is valid");
-
                 // ===================== Witness =====================
-
                 let execution_witness = storage.get_witness(block_hash)?;
+
+                // Prefetch all bytecodes
+                for (_, encoded) in &execution_witness.state_witness {
+                    if let Ok(TrieNode::Leaf(leaf)) = TrieNode::decode(&mut &encoded[..]) {
+                        if let Ok(account) = TrieAccount::decode(&mut &leaf.value[..]) {
+                            self.storage.get_contract_bytecode(account.code_hash)?;
+                        }
+                    }
+                }
+
                 let mut trie = SparseStateTrie::default().with_updates(true);
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
                 let db = WitnessDatabase::new(trie, storage.clone());
@@ -183,7 +193,7 @@ impl ConsensusEngine {
                 let block = BlockWithSenders::new(block.clone().unseal(), senders)
                     .expect("cannot construct block");
                 let output = block_executor.execute(&block)?;
-                info!("end execution in {:?}", start_time.elapsed());
+                info!(elapsed = ?start_time.elapsed(), "🎉 executed new payload");
 
                 // ===================== Post Validation =====================
 
@@ -203,7 +213,7 @@ impl ConsensusEngine {
                     None => parent_hash_from_payload,
                 };
 
-                info!(?latest_valid_hash, "🎉 executed new payload");
+                info!(?latest_valid_hash, "🟢 new payload is valid");
 
                 if let Err(e) = tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)
                     .with_latest_valid_hash(latest_valid_hash)))

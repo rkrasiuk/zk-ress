@@ -32,7 +32,8 @@ reth-trie-sparse.workspace = true
 alloy-primitives.workspace = true
 alloy-rpc-types-engine.workspace = true
 alloy-provider.workspace = true
-
+alloy-trie.workspace = true
+alloy-rlp.workspace = true
 
 # misc
 eyre.workspace = true

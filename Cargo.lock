@@ -5436,7 +5436,9 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
+ "alloy-rlp",
  "alloy-rpc-types-engine",
+ "alloy-trie",
  "eyre",
  "jsonrpsee-http-client",
  "ress-common",
