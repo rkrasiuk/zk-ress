@@ -172,6 +172,7 @@ impl ConsensusEngine {
                 let execution_witness = storage.get_witness(block_hash)?;
 
                 // Prefetch all bytecodes
+                // todo: this can be parallelized
                 for (_, encoded) in &execution_witness.state_witness {
                     if let Ok(TrieNode::Leaf(leaf)) = TrieNode::decode(&mut &encoded[..]) {
                         if let Ok(account) = TrieAccount::decode(&mut &leaf.value[..]) {
