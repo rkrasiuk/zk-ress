@@ -294,16 +294,15 @@ impl ConsensusEngine {
         &self,
         state: ForkchoiceState,
     ) -> Result<(), OnForkChoiceUpdated> {
-        if !state.finalized_block_hash.is_zero() {
-            if !self.storage.find_block_hash(state.finalized_block_hash) {
-                return Err(OnForkChoiceUpdated::invalid_state());
-            }
+        if !state.finalized_block_hash.is_zero()
+            && !self.storage.find_block_hash(state.finalized_block_hash)
+        {
+            return Err(OnForkChoiceUpdated::invalid_state());
         }
 
-        if !state.safe_block_hash.is_zero() {
-            if !self.storage.find_block_hash(state.safe_block_hash) {
-                return Err(OnForkChoiceUpdated::invalid_state());
-            }
+        if !state.safe_block_hash.is_zero() && !self.storage.find_block_hash(state.safe_block_hash)
+        {
+            return Err(OnForkChoiceUpdated::invalid_state());
         }
 
         Ok(())
