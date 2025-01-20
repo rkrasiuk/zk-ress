@@ -1,12 +1,16 @@
-use crate::protocol::proto::BytecodeRequest;
-
 use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind, NodeType};
+use crate::protocol::proto::BytecodeRequest;
 use alloy_primitives::{bytes::BytesMut, BlockHash, B256};
 use futures::{Stream, StreamExt};
 use ress_common::utils::read_example_witness;
 use ress_primitives::witness::ExecutionWitness;
+use reth_db::DatabaseEnv;
 use reth_eth_wire::multiplex::ProtocolConnection;
+use reth_node_api::NodeTypesWithDBAdapter;
+use reth_node_ethereum::EthereumNode;
+use reth_provider::providers::BlockchainProvider;
 use reth_revm::primitives::Bytecode;
+use std::sync::Arc;
 use std::{
     pin::Pin,
     task::{ready, Context, Poll},
@@ -40,7 +44,7 @@ pub enum CustomCommand {
         /// target code hash that we want to get bytecode from
         code_hash: B256,
         /// The response will be sent to this channel.
-        response: oneshot::Sender<Bytecode>,
+        response: oneshot::Sender<Option<Bytecode>>,
     },
 }
 
@@ -55,7 +59,9 @@ pub struct CustomRlpxConnection {
 
     pending_is_valid_connection: Option<oneshot::Sender<bool>>,
     pending_witness: Option<oneshot::Sender<ExecutionWitness>>,
-    pending_bytecode: Option<oneshot::Sender<Bytecode>>,
+    pending_bytecode: Option<oneshot::Sender<Option<Bytecode>>>,
+    state_provider:
+        Option<BlockchainProvider<NodeTypesWithDBAdapter<EthereumNode, Arc<DatabaseEnv>>>>,
 }
 
 /// determine whether is valid node combination or not
@@ -134,12 +140,24 @@ impl Stream for CustomRlpxConnection {
                     return Poll::Ready(None);
                 }
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
-                    // TODO: get witness from other full node peers, rn from file
                     debug!("requested witness for blockhash: {}", block_hash);
-                    let witness = read_example_witness(block_hash).expect("witness should exist");
-                    let state_witness = witness.state;
+                    let execution_witness = match this.original_node_type {
+                        NodeType::Stateful => {
+                            // TODO: get witness from state provider if it's full node.
+                            this.state_provider
+                                .clone()
+                                .expect("stateful node have provider");
+                            todo!()
+                        }
+                        NodeType::Stateless => {
+                            // currently we use file to fetch witness for stateles <> stateless testing purpose
+                            let witness =
+                                read_example_witness(block_hash).expect("witness should exist");
+                            let state_witness = witness.state;
+                            ExecutionWitness::new(state_witness)
+                        }
+                    };
 
-                    let execution_witness = ExecutionWitness::new(state_witness);
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::witness_res(execution_witness).encoded(),
                     ));
@@ -151,20 +169,31 @@ impl Stream for CustomRlpxConnection {
                     continue;
                 }
                 CustomRlpxProtoMessageKind::BytecodeReq(msg) => {
-                    // TODO: get bytecode from other full node peers, rn from file
                     debug!(
                         "requested bytes for codehash: {}, blockhash: {}",
                         msg.code_hash, msg.block_hash
                     );
-                    let witness =
-                        read_example_witness(msg.block_hash).expect("witness should exist");
-                    let code_bytes = witness
-                        .codes
-                        .get(&msg.code_hash)
-                        .expect("no bytes found from codehash");
-                    let bytecode: Bytecode = Bytecode::LegacyRaw(code_bytes.clone());
+                    let code_bytes = match this.original_node_type {
+                        NodeType::Stateful => {
+                            // TODO: get bytecode from state provider if it's full node.
+                            this.state_provider
+                                .clone()
+                                .expect("stateful node have provider");
+                            todo!()
+                        }
+                        NodeType::Stateless => {
+                            // currently we use file to fetch witness for stateles <> stateless testing purpose
+                            let witness =
+                                read_example_witness(msg.block_hash).expect("witness should exist");
+                            witness
+                                .codes
+                                .get(&msg.code_hash)
+                                .map(|bytecode| Bytecode::LegacyRaw(bytecode.clone()))
+                        }
+                    };
+
                     return Poll::Ready(Some(
-                        CustomRlpxProtoMessage::bytecode_res(bytecode).encoded(),
+                        CustomRlpxProtoMessage::bytecode_res(code_bytes).encoded(),
                     ));
                 }
                 CustomRlpxProtoMessageKind::BytecodeRes(msg) => {
