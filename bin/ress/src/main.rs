@@ -8,7 +8,6 @@ use reth_chainspec::MAINNET;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_network::NetworkEventListenerProvider;
 use reth_node_ethereum::EthEngineTypes;
-use std::net::TcpListener;
 use std::sync::Arc;
 use tracing::info;
 
@@ -38,7 +37,7 @@ async fn main() -> eyre::Result<()> {
     // =============================== Launch Node ==================================
 
     let node = Node::launch_test_node(local_node, MAINNET.clone()).await;
-    is_ports_alive(local_node);
+    assert!(local_node.is_ports_alive());
 
     // ============================== DEMO ==========================================
 
@@ -77,8 +76,11 @@ async fn main() -> eyre::Result<()> {
         .try_collect::<Vec<_>>()
         .await?;
     let storage = node.storage;
-    storage.overwrite_blocks(headers);
-    assert!(storage.is_canonical_blocks_exist(latest_block_number));
+    let parent_header = headers.last().unwrap().clone();
+    info!("latest header: {}", parent_header.number);
+    storage.overwrite_block_hashes_by_headers(headers);
+    storage.set_block_header(parent_header);
+    assert!(storage.is_canonical_hashes_exist(latest_block_number));
 
     // ================ CONSENSUS CLIENT ================
 
@@ -99,17 +101,4 @@ async fn main() -> eyre::Result<()> {
     }
 
     Ok(())
-}
-
-fn is_ports_alive(local_node: TestPeers) {
-    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_authserver_addr().port())) {
-        Ok(_listener) => false,
-        Err(_) => true,
-    };
-    info!(target: "ress","auth server is_alive: {:?}", is_alive);
-    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
-        Ok(_listener) => false,
-        Err(_) => true,
-    };
-    info!(target: "ress","network is_alive: {:?}", is_alive);
 }

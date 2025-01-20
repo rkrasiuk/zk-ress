@@ -16,10 +16,10 @@ pub struct ExecutionWitnessFromRpc {
     ///
     /// `keccak(bytecodes) => bytecodes`
     pub codes: B256HashMap<Bytes>,
-    /// Map of all hashed account and storage keys (addresses and slots) to their preimages
-    /// (unhashed account addresses and storage slots, respectively) that were required during
-    /// the execution of the block.
-    ///
-    /// `keccak(address|slot) => address|slot`
-    pub keys: B256HashMap<Bytes>,
+}
+
+impl ExecutionWitnessFromRpc {
+    pub fn new(state: B256HashMap<Bytes>, codes: B256HashMap<Bytes>) -> Self {
+        Self { state, codes }
+    }
 }
