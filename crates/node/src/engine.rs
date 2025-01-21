@@ -1,4 +1,3 @@
-use alloy_primitives::b256;
 use alloy_primitives::U256;
 use alloy_provider::network::primitives::BlockTransactionsKind;
 use alloy_provider::network::AnyNetwork;
@@ -10,6 +9,7 @@ use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use alloy_trie::nodes::TrieNode;
 use alloy_trie::TrieAccount;
+use alloy_trie::KECCAK_EMPTY;
 use jsonrpsee_http_client::HttpClientBuilder;
 use ress_common::utils::get_witness_path;
 use ress_primitives::witness::ExecutionWitness;
@@ -42,6 +42,7 @@ use std::result::Result::Ok;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
+use tracing::debug;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
@@ -193,6 +194,8 @@ impl ConsensusEngine {
 
                 // ===================== Update state =====================
 
+                let header_from_payload = block.header.clone();
+                self.provider.storage.set_block_header(header_from_payload);
                 let latest_valid_hash = match self.forkchoice_state {
                     Some(fcu_state) => fcu_state.head_block_hash,
                     None => parent_hash_from_payload,
@@ -355,10 +358,8 @@ impl ConsensusEngine {
                     return None;
                 };
                 let account = TrieAccount::decode(&mut &leaf.value[..]).ok()?;
-                // Skip "empty" code hashes
-                if account.code_hash
-                    == b256!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
-                {
+                // Skip EOA
+                if account.code_hash == KECCAK_EMPTY {
                     return None;
                 }
 
@@ -367,7 +368,8 @@ impl ConsensusEngine {
             .collect();
         for code_hash in self.provider.storage.filter_code_hashes(code_hashes) {
             if let Err(e) = self.provider.fetch_contract_bytecode(code_hash).await {
-                warn!("Failed to prefetch: {e}");
+                // code hashes decoded from witness might not used during execution so it's ok to not fetch from code from `debug_executionWitness`
+                debug!("Failed to prefetch: {e}");
             }
         }
     }

@@ -46,6 +46,7 @@ impl Storage {
         Err(StorageError::NoCodeForCodeHash(code_hash))
     }
 
+    /// Filter code hashes only not stored in disk already
     pub fn filter_code_hashes(&self, code_hashes: Vec<B256>) -> Vec<B256> {
         self.disk.filter_code_hashes(code_hashes)
     }
