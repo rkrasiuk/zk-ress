@@ -1,4 +1,4 @@
-use alloy_primitives::{BlockNumber, B256};
+use alloy_primitives::{BlockHash, BlockNumber, B256};
 use ress_subprotocol::connection::CustomCommand;
 use tokio::sync::{mpsc::error::SendError, oneshot::error::RecvError};
 
@@ -37,9 +37,16 @@ pub enum NetworkStorageError {
 /// Errors that can occur during memory storage operations.
 #[derive(Debug, thiserror::Error)]
 pub enum MemoryStorageError {
-    /// Block not found in memory storage.
-    #[error("block not found: {0}")]
-    BlockNotFound(BlockNumber),
+    /// Block not found in memory storage via block number.
+    #[error("block hash not found from number: {0}")]
+    BlockNotFoundFromNumber(BlockNumber),
+
+    /// Block not found in memory storage via block hash.
+    #[error("block not found from hash: {0}")]
+    BlockNotFoundFromHash(BlockHash),
+
+    #[error("non canonical chain: {0}")]
+    NonCanonicalChain(BlockHash),
 }
 
 /// Errors that can occur during disk storage operations.

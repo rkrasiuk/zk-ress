@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use alloy_eips::BlockNumHash;
 use alloy_primitives::B256;
 use ress_primitives::witness::ExecutionWitness;
 use ress_subprotocol::connection::CustomCommand;
@@ -19,9 +20,10 @@ impl RessProvider {
     pub fn new(
         network_peer_conn: UnboundedSender<CustomCommand>,
         chain_spec: Arc<ChainSpec>,
+        current_canonical_head: BlockNumHash,
     ) -> Self {
         let network = NetworkProvider::new(network_peer_conn);
-        let storage = Arc::new(Storage::new(chain_spec));
+        let storage = Arc::new(Storage::new(chain_spec, current_canonical_head));
         Self { storage, network }
     }
 
@@ -31,14 +33,14 @@ impl RessProvider {
     }
 
     /// Fetch bytecode and save it to disk
-    pub async fn fetch_contract_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
-        let latest_block_hash = self.storage.memory.get_latest_block_hash();
+    pub async fn fetch_contract_bytecode(
+        &self,
+        code_hash: B256,
+        block_hash: B256,
+    ) -> Result<Bytecode, StorageError> {
         if let Some(bytecode) = self
             .network
-            .get_contract_bytecode(
-                latest_block_hash.expect("need latest block hash"),
-                code_hash,
-            )
+            .get_contract_bytecode(block_hash, code_hash)
             .await?
         {
             self.storage

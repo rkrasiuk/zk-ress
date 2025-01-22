@@ -1,7 +1,8 @@
+use alloy_eips::BlockNumHash;
 use alloy_primitives::{BlockHash, BlockNumber, B256};
 use backends::{disk::DiskStorage, memory::MemoryStorage};
 use reth_chainspec::ChainSpec;
-use reth_primitives::{Header, SealedHeader};
+use reth_primitives::Header;
 use reth_revm::primitives::Bytecode;
 use std::{collections::HashMap, sync::Arc};
 
@@ -18,8 +19,8 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        let memory = MemoryStorage::new();
+    pub fn new(chain_spec: Arc<ChainSpec>, current_canonical_head: BlockNumHash) -> Self {
+        let memory = MemoryStorage::new(current_canonical_head);
         let disk = DiskStorage::new("test.db");
         Self {
             chain_spec,
@@ -28,14 +29,56 @@ impl Storage {
         }
     }
 
-    /// Remove oldest block hash and header
-    pub fn remove_oldest_block(&self) {
-        self.memory.remove_oldest_block();
+    /// manage storage when new fork choice update message is pointing reorg
+    pub fn post_fcu_reorg_update(
+        &self,
+        new_head: Header,
+        last_persisted_hash: B256,
+    ) -> Result<(), StorageError> {
+        self.memory
+            .rebuild_canonical_hashes(BlockNumHash::new(new_head.number, new_head.hash_slow()))?;
+        let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
+        self.memory
+            .remove_canonical_until(upper_bound, last_persisted_hash);
+        Ok(())
     }
 
-    /// Find if target block hash is exist in the memory
-    pub fn find_block_hash(&self, block_hash: BlockHash) -> bool {
-        self.memory.find_block_hash(block_hash)
+    pub fn post_fcu_update(
+        &self,
+        new_head: Header,
+        last_persisted_hash: B256,
+    ) -> Result<(), StorageError> {
+        self.memory
+            .set_canonical_head(BlockNumHash::new(new_head.number, new_head.hash_slow()));
+        self.memory
+            .set_canonical_hash(new_head.hash_slow(), new_head.number)?;
+        let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
+        self.memory
+            .remove_canonical_until(upper_bound, last_persisted_hash);
+        self.memory.remove_oldest_canonical_hash();
+        Ok(())
+    }
+
+    pub fn get_executed_header_by_hash(&self, hash: B256) -> Option<Header> {
+        self.memory.get_executed_header_by_hash(hash)
+    }
+
+    /// Insert executed block into the state.
+    pub fn insert_executed(&self, executed: Header) {
+        self.memory.insert_executed(executed);
+    }
+
+    /// Returns whether or not the hash is part of the canonical chain.
+    pub fn is_canonical(&self, hash: B256) -> bool {
+        self.memory.is_canonical_lookup(hash)
+    }
+
+    pub fn set_canonical_head(&self, new_head: BlockNumHash) {
+        self.memory.set_canonical_head(new_head);
+    }
+
+    pub fn get_canonical_head(&self) -> BlockNumHash {
+        self.memory.get_canonical_head()
     }
 
     /// Get contract bytecode from given codehash from the disk
@@ -51,21 +94,14 @@ impl Storage {
         self.disk.filter_code_hashes(code_hashes)
     }
 
-    /// Set block hash and set block header
-    pub fn set_block(&self, header: Header) {
-        self.memory
-            .set_block_hash(header.hash_slow(), header.number);
-        self.memory.set_block_header(header.hash_slow(), header);
-    }
-
-    /// Set block header
-    pub fn set_block_header(&self, header: Header) {
-        self.memory.set_block_header(header.hash_slow(), header);
-    }
-
-    /// Set block hash
-    pub fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {
-        self.memory.set_block_hash(block_hash, block_number);
+    /// Set canonical block hash that historical 256 blocks from canonical head
+    pub fn set_canonical_hash(
+        &self,
+        block_hash: B256,
+        block_number: BlockNumber,
+    ) -> Result<(), StorageError> {
+        self.memory.set_canonical_hash(block_hash, block_number)?;
+        Ok(())
     }
 
     /// Overwrite block hashes mapping
@@ -86,11 +122,6 @@ impl Storage {
         self.memory.overwrite_block_hashes(block_hashes);
     }
 
-    /// Check if 256 canonical hashes are exist from target block
-    pub fn is_canonical_hashes_exist(&self, target_block: BlockNumber) -> bool {
-        self.memory.is_canonical_hashes_exist(target_block)
-    }
-
     /// Get block hash from memory of target block number
     pub fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash, StorageError> {
         self.memory
@@ -101,15 +132,5 @@ impl Storage {
     /// Get chain config
     pub fn get_chain_config(&self) -> Arc<ChainSpec> {
         self.chain_spec.clone()
-    }
-
-    /// Get block header by block hash
-    pub fn get_block_header_by_hash(
-        &self,
-        block_hash: B256,
-    ) -> Result<Option<SealedHeader>, StorageError> {
-        self.memory
-            .get_block_header_by_hash(block_hash)
-            .map_err(StorageError::Memory)
     }
 }
