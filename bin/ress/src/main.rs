@@ -139,7 +139,7 @@ async fn main() -> eyre::Result<()> {
 
     // =================================================================
 
-    let mut events = node.p2p_handle.network_handle.event_listener();
+    let mut events = node.network_handle.network_handle.event_listener();
     while let Some(event) = events.next().await {
         info!(target: "ress","Received event: {:?}", event);
     }

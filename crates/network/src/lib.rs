@@ -1,21 +1,129 @@
-//! P2P networking implementation for the ress node.
+//! Ress networking implementation.
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
 use ress_common::test_utils::TestPeers;
-use reth_chainspec::ChainSpec;
-use std::sync::Arc;
+use ress_subprotocol::{
+    connection::CustomCommand,
+    protocol::{
+        event::ProtocolEvent,
+        handler::{CustomRlpxProtoHandler, ProtocolState},
+        proto::NodeType,
+    },
+};
+use reth_network::{
+    config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
+    NetworkHandle, NetworkManager,
+};
+use reth_provider::noop::NoopProvider;
+use reth_transaction_pool::PeerId;
+use std::net::SocketAddr;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tracing::info;
 
-mod p2p;
-pub use p2p::*;
+/// Ress networking handle.
+#[derive(Debug)]
+pub struct RessNetworkHandle {
+    /// Handle for interacting with the network.
+    pub network_handle: NetworkHandle,
+    /// Sender for forwarding network commands.
+    pub network_peer_conn: UnboundedSender<CustomCommand>,
+}
 
-mod rpc;
-pub use rpc::RpcHandler;
+impl RessNetworkHandle {
+    /// Start network manager.
+    pub async fn start_network(id: TestPeers) -> Self {
+        let (subnetwork_handle, from_peer) =
+            Self::launch_subprotocol_network(id.get_key(), id.get_network_addr()).await;
+        // connect peer to own network
+        subnetwork_handle.peers_handle().add_peer(
+            id.get_peer().get_peer_id(),
+            id.get_peer().get_network_addr(),
+        );
 
-/// spawn p2p network and rpc server
-pub async fn start_network(id: TestPeers, chain_spec: Arc<ChainSpec>) -> (P2pHandle, RpcHandler) {
-    (
-        P2pHandle::start_server(id).await,
-        RpcHandler::start_server(id, chain_spec).await,
-    )
+        // get a handle to the network to interact with it
+        let network_handle = subnetwork_handle.handle().clone();
+        // spawn the network
+        tokio::task::spawn(subnetwork_handle);
+
+        let network_peer_conn =
+            Self::setup_subprotocol_network(from_peer, id.get_peer().get_peer_id()).await;
+
+        Self {
+            network_handle,
+            network_peer_conn,
+        }
+    }
+
+    async fn launch_subprotocol_network(
+        secret_key: SecretKey,
+        socket: SocketAddr,
+    ) -> (NetworkManager, UnboundedReceiver<ProtocolEvent>) {
+        // This block provider implementation is used for testing purposes.
+        let client = NoopProvider::default();
+
+        let (tx, from_peer) = tokio::sync::mpsc::unbounded_channel();
+        let custom_rlpx_handler = CustomRlpxProtoHandler {
+            state: ProtocolState { events: tx },
+            node_type: NodeType::Stateless,
+            state_provider: None,
+        };
+
+        // Configure the network
+        let config = NetworkConfig::builder(secret_key)
+            .listener_addr(socket)
+            .disable_discovery()
+            .add_rlpx_sub_protocol(custom_rlpx_handler.into_rlpx_sub_protocol())
+            .build(client);
+
+        // create the network instance
+        let subnetwork = NetworkManager::<EthNetworkPrimitives>::new(config)
+            .await
+            .unwrap();
+
+        let subnetwork_peer_id = *subnetwork.peer_id();
+        let subnetwork_peer_addr = subnetwork.local_addr();
+
+        info!(
+            "subnetwork | peer_id: {}, peer_addr: {} ",
+            subnetwork_peer_id, subnetwork_peer_addr
+        );
+
+        (subnetwork, from_peer)
+    }
+
+    /// Establish connection and send type checking
+    async fn setup_subprotocol_network(
+        mut from_peer: UnboundedReceiver<ProtocolEvent>,
+        peer_id: PeerId,
+    ) -> UnboundedSender<CustomCommand> {
+        // Establish connection between peer0 and peer1
+        let peer_to_peer = from_peer.recv().await.expect("peer connecting");
+        let peer_conn = match peer_to_peer {
+            ProtocolEvent::Established {
+                direction: _,
+                peer_id: received_peer_id,
+                to_connection,
+            } => {
+                assert_eq!(received_peer_id, peer_id);
+                to_connection
+            }
+        };
+        info!("🟢 connection established with peer_id: {} ", peer_id);
+
+        // =================================================================
+
+        //  Type message subprotocol
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        peer_conn
+            .send(CustomCommand::NodeType {
+                node_type: NodeType::Stateless,
+                response: tx,
+            })
+            .unwrap();
+        let response = rx.await.unwrap();
+        assert!(response);
+        info!(?response, "🟢 connection type valid");
+        peer_conn
+    }
 }

@@ -1,3 +1,7 @@
+//! Ress RPC.
+
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+
 use alloy_rpc_types_engine::{ClientCode, ClientVersionV1, JwtSecret};
 use ress_common::test_utils::TestPeers;
 use reth_chainspec::ChainSpec;
@@ -15,9 +19,9 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 // todo: add execution rpc later
-/// RPC launcher.
+/// RPC handle.
 #[derive(Debug)]
-pub struct RpcHandler {
+pub struct RpcHandle {
     /// Auth server handle.
     pub authserver_handle: AuthServerHandle,
 
@@ -25,8 +29,9 @@ pub struct RpcHandler {
     pub from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
 }
 
-impl RpcHandler {
-    pub(crate) async fn start_server(id: TestPeers, chain_spec: Arc<ChainSpec>) -> Self {
+impl RpcHandle {
+    /// Start RPC server.
+    pub async fn start_server(id: TestPeers, chain_spec: Arc<ChainSpec>) -> Self {
         let (authserver_handle, from_beacon_engine) =
             Self::launch_auth_server(id.get_jwt_secret(), id.get_authserver_addr(), chain_spec)
                 .await;

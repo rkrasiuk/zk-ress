@@ -5306,20 +5306,10 @@ dependencies = [
 name = "ress-network"
 version = "0.1.0"
 dependencies = [
- "alloy-rpc-types-engine",
  "ress-common",
  "ress-subprotocol",
- "reth-chainspec",
- "reth-engine-primitives",
  "reth-network",
- "reth-node-api",
- "reth-node-ethereum",
- "reth-payload-builder",
- "reth-primitives",
  "reth-provider",
- "reth-rpc-builder",
- "reth-rpc-engine-api",
- "reth-tasks",
  "reth-transaction-pool",
  "tokio",
  "tracing",
@@ -5341,6 +5331,7 @@ dependencies = [
  "ress-network",
  "ress-primitives",
  "ress-provider",
+ "ress-rpc",
  "ress-vm",
  "reth-chainspec",
  "reth-consensus",
@@ -5385,6 +5376,26 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "ress-rpc"
+version = "0.1.0"
+dependencies = [
+ "alloy-rpc-types-engine",
+ "ress-common",
+ "reth-chainspec",
+ "reth-engine-primitives",
+ "reth-node-api",
+ "reth-node-ethereum",
+ "reth-payload-builder",
+ "reth-primitives",
+ "reth-provider",
+ "reth-rpc-builder",
+ "reth-rpc-engine-api",
+ "reth-tasks",
+ "reth-transaction-pool",
+ "tokio",
 ]
 
 [[package]]

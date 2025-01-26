@@ -12,6 +12,7 @@ members = [
     "crates/node",
     "crates/primitives",
     "crates/provider",
+    "crates/rpc",
     "crates/subprotocol",
     "crates/vm",
 ]
@@ -57,6 +58,7 @@ ress-network = { path = "crates/network" }
 ress-common = { path = "crates/common" }
 ress-vm = { path = "crates/vm" }
 ress-primitives = { path = "crates/primitives" }
+ress-rpc = { path = "crates/rpc" }
 
 # reth
 reth = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }

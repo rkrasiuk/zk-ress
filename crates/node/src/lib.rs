@@ -4,8 +4,9 @@
 
 use alloy_eips::BlockNumHash;
 use ress_common::test_utils::TestPeers;
-use ress_network::P2pHandle;
+use ress_network::RessNetworkHandle;
 use ress_provider::provider::RessProvider;
+use ress_rpc::RpcHandle;
 use reth_chainspec::ChainSpec;
 use reth_rpc_builder::auth::AuthServerHandle;
 use std::sync::Arc;
@@ -24,7 +25,7 @@ pub mod errors;
 #[derive(Debug)]
 pub struct Node {
     /// P2P handle.
-    pub p2p_handle: P2pHandle,
+    pub network_handle: RessNetworkHandle,
     /// Auth RPC server handle.
     pub authserver_handle: AuthServerHandle,
     /// Consensus engine handle.
@@ -40,14 +41,14 @@ impl Node {
         chain_spec: Arc<ChainSpec>,
         current_canonical_head: BlockNumHash,
     ) -> Self {
-        let (p2p_handler, rpc_handler) =
-            ress_network::start_network(id, Arc::clone(&chain_spec)).await;
+        let network_handle = RessNetworkHandle::start_network(id).await;
+        let rpc_handle = RpcHandle::start_server(id, chain_spec.clone()).await;
 
         // ================ initial update ==================
 
         // initiate state with parent hash
         let provider = Arc::new(RessProvider::new(
-            p2p_handler.network_peer_conn.clone(),
+            network_handle.network_peer_conn.clone(),
             Arc::clone(&chain_spec),
             current_canonical_head,
         ));
@@ -55,13 +56,13 @@ impl Node {
         let consensus_engine = ConsensusEngine::new(
             chain_spec.as_ref(),
             provider.clone(),
-            rpc_handler.from_beacon_engine,
+            rpc_handle.from_beacon_engine,
         );
         let consensus_engine_handle = tokio::spawn(async move { consensus_engine.run().await });
 
         Self {
-            p2p_handle: p2p_handler,
-            authserver_handle: rpc_handler.authserver_handle,
+            network_handle,
+            authserver_handle: rpc_handle.authserver_handle,
             consensus_engine_handle,
             provider,
         }

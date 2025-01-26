@@ -12,6 +12,7 @@ workspace = true
 ress-primitives.workspace = true
 ress-common.workspace = true
 ress-network.workspace = true
+ress-rpc.workspace = true
 ress-vm.workspace = true
 ress-provider.workspace = true
 
