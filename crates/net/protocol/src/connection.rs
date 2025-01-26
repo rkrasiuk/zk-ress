@@ -183,6 +183,8 @@ where
 
                 continue;
             }
+
+            return Poll::Pending;
         }
     }
 }
