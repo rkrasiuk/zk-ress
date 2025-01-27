@@ -167,7 +167,7 @@ impl ConsensusEngine {
 
         if self.provider.storage.get_canonical_head().number + 1 != head.number {
             // fcu is pointing fork chain
-            warn!(target: "ress::engine", block_number = head.number, "Reorg detected");
+            warn!(target: "ress::engine", block_number = head.number, "Reorg or hash inconsistency detected");
             self.provider
                 .storage
                 .on_fcu_reorg_update(head, state.finalized_block_hash)
@@ -227,9 +227,10 @@ impl ConsensusEngine {
         // todo: invalid_ancestors check
         let parent_hash = payload.parent_hash();
         if !self.provider.storage.is_canonical(parent_hash) {
-            warn!(target: "ress::engine", %parent_hash, "Parent is not canonical");
+            warn!(target: "ress::engine", %parent_hash, "Parent is not canonical, fetching from network");
+            let header = self.provider.fetch_header(parent_hash).await?;
+            self.provider.storage.insert_header(header);
         }
-
         let parent =
             self.provider
                 .storage
@@ -288,7 +289,7 @@ impl ConsensusEngine {
 
         // ===================== Update Node State =====================
         let header_from_payload = block.header.clone();
-        self.provider.storage.insert_executed(header_from_payload);
+        self.provider.storage.insert_header(header_from_payload);
         let latest_valid_hash = match self.forkchoice_state {
             Some(fcu_state) => fcu_state.head_block_hash,
             None => parent_hash,

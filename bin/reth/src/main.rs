@@ -11,8 +11,10 @@ use reth::{
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
 };
 use reth_evm::execute::{BlockExecutorProvider, Executor};
+use reth_node_builder::Block;
 use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
+use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
 
 fn main() -> eyre::Result<()> {
@@ -50,9 +52,17 @@ struct RethBlockchainProvider<N: NodeTypesWithDB, E> {
 
 impl<N, E> RessProtocolProvider for RethBlockchainProvider<N, E>
 where
-    N: ProviderNodeTypes,
+    N: ProviderNodeTypes<Primitives = EthPrimitives>,
     E: BlockExecutorProvider<Primitives = N::Primitives>,
 {
+    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+        let block = self
+            .provider
+            .block_with_senders(block_hash.into(), TransactionVariant::default())?
+            .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+        Ok(Some(block.block.header().clone()))
+    }
+
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
         Ok(self
             .provider
