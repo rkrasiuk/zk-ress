@@ -11,7 +11,6 @@ use reth::{
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
 };
 use reth_evm::execute::{BlockExecutorProvider, Executor};
-use reth_node_builder::Block;
 use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
@@ -60,7 +59,7 @@ where
             .provider
             .block_with_senders(block_hash.into(), TransactionVariant::default())?
             .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-        Ok(Some(block.block.header().clone()))
+        Ok(Some(block.header().clone()))
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
@@ -78,7 +77,7 @@ where
             .pending_block_with_senders()?
             .filter(|b| b.hash() == block_hash)
         {
-            pending.unseal()
+            pending
         } else {
             self.provider
                 .block_with_senders(block_hash.into(), TransactionVariant::default())?

@@ -18,6 +18,7 @@ pub fn calculate_state_root(
 ) -> SparseStateTrieResult<B256> {
     // Update storage slots with new values and calculate storage roots.
     let (storage_tx, storage_rx) = mpsc::channel();
+
     state
         .storages
         .into_iter()
