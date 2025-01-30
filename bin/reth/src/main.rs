@@ -72,11 +72,19 @@ where
     }
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
-        let block = self
+        // TODO: this is a workaround because reth's `find_block_by_hash` does not work as expected
+        let block = if let Some(pending) = self
             .provider
-            .block_with_senders(block_hash.into(), TransactionVariant::default())?
-            .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-        let state_provider = self.provider.history_by_block_hash(block_hash)?;
+            .pending_block_with_senders()?
+            .filter(|b| b.hash() == block_hash)
+        {
+            pending.unseal()
+        } else {
+            self.provider
+                .block_with_senders(block_hash.into(), TransactionVariant::default())?
+                .ok_or(ProviderError::BlockHashNotFound(block_hash))?
+        };
+        let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
         let _ = self
