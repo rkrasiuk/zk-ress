@@ -165,10 +165,10 @@ impl ConsensusEngine {
         }
 
         // ===================== Handle Reorg =====================
-
-        if self.provider.storage.get_canonical_head().number + 1 != head.number {
+        let canonical_head = self.provider.storage.get_canonical_head().number;
+        if canonical_head + 1 != head.number {
             // fcu is pointing fork chain
-            warn!(target: "ress::engine", block_number = head.number, "Reorg or hash inconsistency detected");
+            warn!(target: "ress::engine", block_number = head.number, ?canonical_head, "Reorg or hash inconsistency detected");
             self.provider
                 .storage
                 .on_fcu_reorg_update(head, state.finalized_block_hash)
@@ -290,10 +290,7 @@ impl ConsensusEngine {
         // ===================== Update Node State =====================
         let header_from_payload = block.sealed_block().header().clone();
         self.provider.storage.insert_header(header_from_payload);
-        let latest_valid_hash = match self.forkchoice_state {
-            Some(fcu_state) => fcu_state.head_block_hash,
-            None => parent_hash,
-        };
+        let latest_valid_hash = block_hash;
 
         info!(target: "ress::engine", ?latest_valid_hash, "🟢 new payload is valid");
         Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)

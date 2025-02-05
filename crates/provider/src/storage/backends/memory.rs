@@ -95,7 +95,8 @@ impl MemoryStorageInner {
         let mut current_block = self.current_canonical_head.hash;
         while let Some(executed) = self.headers_by_hash.get(&current_block) {
             current_block = executed.parent_hash;
-            if executed.number <= upper_bound {
+            // we don't want to remove upperbound
+            if executed.number < upper_bound {
                 debug!(target: "engine::tree", number=?executed.number, "Attempting to remove block walking back from the head");
                 if let Some((removed, _)) = self.remove_by_hash(executed.hash_slow()) {
                     debug!(target: "engine::tree", number=?removed.number, "Removed block walking back from the head");
@@ -257,7 +258,9 @@ impl MemoryStorage {
 
     pub(crate) fn remove_oldest_canonical_hash(&self) {
         let mut inner = self.inner.write();
-        if let Some(&oldest_block_number) = inner.canonical_hashes.keys().min() {
+        // todo: we might want to track more hashes
+        if inner.canonical_hashes.len() > 256 {
+            let oldest_block_number = *inner.canonical_hashes.keys().min().unwrap();
             let _ = inner.canonical_hashes.remove(&oldest_block_number);
         }
     }
@@ -282,7 +285,6 @@ impl MemoryStorage {
             inner.canonical_hashes.insert(block_number, block_hash);
             Ok(())
         } else {
-            println!("🍕");
             Err(MemoryStorageError::NonCanonicalChain(block_hash))
         }
     }
@@ -330,13 +332,13 @@ impl MemoryStorage {
         // Traverse up to 256 blocks or genesis
         for block_number in range {
             inner.canonical_hashes.insert(block_number, current_hash);
-            if block_number != 0 {
-                let header = inner
-                    .headers_by_hash
-                    .get(&current_hash)
-                    .cloned()
-                    .ok_or(MemoryStorageError::BlockNotFoundFromHash(current_hash))?;
-                current_hash = header.parent_hash;
+            if block_number != 0 && current_hash != B256::ZERO {
+                let header = inner.headers_by_hash.get(&current_hash).cloned();
+                if let Some(header) = header {
+                    current_hash = header.parent_hash;
+                } else {
+                    break; // Exit the loop if the block is not found, as it's before finalized block
+                }
             }
         }
 
