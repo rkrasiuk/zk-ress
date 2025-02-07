@@ -61,53 +61,64 @@ async fn forward_request(
     let reth = if is_auth_server { RETH_AUTH } else { RETH_HTTP };
     let reth_req = build_request(reth).unwrap();
     let reth_resp = client.request(reth_req).await?;
+    info!("Received from Reth, not payload: {:?}", reth_resp);
 
     // If it's an engine method, send request to Ress and await its response
     if is_engine_method {
-        let (_reth_parts, reth_body) = reth_resp.into_parts();
+        let (reth_parts, reth_body) = reth_resp.into_parts();
         let reth_body_bytes = hyper::body::to_bytes(reth_body).await?;
         let top_level: Value = serde_json::from_slice(&reth_body_bytes).unwrap();
-        let result_value = top_level.get("result").unwrap();
-        let is_payload_id =
-            match serde_json::from_value::<RethPayloadResponse>(result_value.clone()) {
-                Ok(json_value) => json_value.payload_id,
-                Err(_) => None,
-            };
+        match top_level.get("result") {
+            Some(result_value) => {
+                let is_payload_id =
+                    match serde_json::from_value::<RethPayloadResponse>(result_value.clone()) {
+                        Ok(json_value) => json_value.payload_id,
+                        Err(_) => None,
+                    };
 
-        let ress_req = build_request(RESS_AUTH).unwrap();
-        info!("Sending request to Ress: {:?}", ress_req);
+                let ress_req = build_request(RESS_AUTH).unwrap();
+                info!("Sending request to Ress: {:?}", ress_req);
 
-        let ress_resp = client.request(ress_req).await?;
-        if let Some(reth_payload_id) = is_payload_id {
-            let (mut ress_parts, ress_body) = ress_resp.into_parts();
-            info!("reth payload id: {:?}", reth_payload_id);
-            let ress_body_bytes = hyper::body::to_bytes(ress_body).await?;
-            let mut top_level: Value = serde_json::from_slice(&ress_body_bytes).unwrap();
-            if let Some(result_obj) = top_level.get_mut("result") {
-                if let Some(result_map) = result_obj.as_object_mut() {
-                    result_map.insert(
-                        "payloadId".to_string(),
-                        serde_json::Value::String(reth_payload_id.to_string()),
+                let ress_resp = client.request(ress_req).await?;
+                if let Some(reth_payload_id) = is_payload_id {
+                    let (mut ress_parts, ress_body) = ress_resp.into_parts();
+                    info!("reth payload id: {:?}", reth_payload_id);
+                    let ress_body_bytes = hyper::body::to_bytes(ress_body).await?;
+                    let mut top_level: Value = serde_json::from_slice(&ress_body_bytes).unwrap();
+                    if let Some(result_obj) = top_level.get_mut("result") {
+                        if let Some(result_map) = result_obj.as_object_mut() {
+                            result_map.insert(
+                                "payloadId".to_string(),
+                                serde_json::Value::String(reth_payload_id.to_string()),
+                            );
+                        }
+                    }
+
+                    let new_body_bytes = serde_json::to_vec(&top_level).unwrap();
+
+                    // Remove or recalc content-length
+                    ress_parts.headers.remove("content-length");
+                    ress_parts.headers.insert(
+                        hyper::header::CONTENT_LENGTH,
+                        hyper::header::HeaderValue::from_str(&new_body_bytes.len().to_string())
+                            .unwrap(),
                     );
+                    let new_response = Response::from_parts(ress_parts, Body::from(new_body_bytes));
+                    Ok(new_response)
+                } else {
+                    info!("Received from Ress, not payload: {:?}", ress_resp);
+                    Ok(ress_resp)
                 }
             }
-
-            let new_body_bytes = serde_json::to_vec(&top_level).unwrap();
-
-            // Remove or recalc content-length
-            ress_parts.headers.remove("content-length");
-            ress_parts.headers.insert(
-                hyper::header::CONTENT_LENGTH,
-                hyper::header::HeaderValue::from_str(&new_body_bytes.len().to_string()).unwrap(),
-            );
-            let new_response = Response::from_parts(ress_parts, Body::from(new_body_bytes));
-            Ok(new_response)
-        } else {
-            info!("Received from Ress, not payload: {:?}", ress_resp);
-            Ok(ress_resp)
+            None => {
+                info!("rpc response status is: {:?}", reth_parts.status);
+                let ress_req = build_request(RESS_AUTH).unwrap();
+                info!("Sending request to Ress: {:?}", ress_req);
+                let ress_resp = client.request(ress_req).await?;
+                Ok(ress_resp)
+            }
         }
     } else {
-        info!("Received from Reth, not engine: {:?}", reth_resp);
         Ok(reth_resp)
     }
 }
