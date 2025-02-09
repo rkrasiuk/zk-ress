@@ -32,9 +32,11 @@ tracing.workspace = true
 arbitrary = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]
+reth-eth-wire = { workspace = true, features = ["arbitrary"] }
+
 arbitrary = { workspace = true, features = ["derive"] }
 proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
 
 [features]
-arbitrary = ["dep:arbitrary"]
+arbitrary = ["dep:arbitrary", "reth-eth-wire/arbitrary"]
