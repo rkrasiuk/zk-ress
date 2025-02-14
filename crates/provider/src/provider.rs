@@ -1,4 +1,4 @@
-use crate::{database::RessDatabase, ChainState};
+use crate::{chain_state::ChainState, database::RessDatabase};
 use alloy_primitives::{
     map::{B256HashMap, B256HashSet},
     BlockHash, BlockNumber, Bytes, B256,
@@ -36,9 +36,10 @@ impl RessProvider {
         self.chain_state.is_hash_canonical(hash)
     }
 
-    /// Get block hash from memory of target block number
-    pub fn block_hash(&self, number: &BlockNumber) -> Option<BlockHash> {
-        self.chain_state.block_hash(number)
+    /// Finds block hash in memory for the target block number.
+    /// Includes both canonical and pending blocks.
+    pub fn block_hash(&self, parent_hash: B256, number: &BlockNumber) -> Option<BlockHash> {
+        self.chain_state.block_hash(parent_hash, number)
     }
 
     /// Return sealed block header by hash.
