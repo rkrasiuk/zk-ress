@@ -1,3 +1,4 @@
+use alloy_eips::BlockNumHash;
 use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, B256};
 use itertools::Itertools;
 use parking_lot::RwLock;
@@ -34,22 +35,26 @@ impl ChainState {
     /// Returns block hash for a given block number.
     /// If no canonical hash is found, traverses parent hashes from the given block hash
     /// to find an ancestor at the specified block number.
-    pub fn block_hash(&self, parent_hash: B256, number: &BlockNumber) -> Option<BlockHash> {
+    pub fn block_hash(&self, parent: BlockNumHash, number: BlockNumber) -> Option<BlockHash> {
         let inner = self.0.read();
-        // First check if current block hash is canonical
-        if self.is_hash_canonical(&parent_hash) {
-            inner.canonical_hashes_by_number.get(number).cloned()
-        } else {
-            // If it's not canonical, traverse parent hashes to find ancestor at given number.
-            let mut ancestor_hash = parent_hash;
-            while let Some(block) = inner.blocks_by_hash.get(&ancestor_hash) {
-                if &block.number <= number {
-                    return Some(block.hash()).filter(|_| &block.number == number);
-                }
-                ancestor_hash = block.parent_hash;
+
+        // First traverse the ancestors and attempt to find the block number in executed blocks.
+        let mut ancestor = parent;
+        while let Some(block) = inner.blocks_by_hash.get(&ancestor.hash) {
+            if block.number == number {
+                return Some(block.hash())
             }
-            None
+            ancestor = block.parent_num_hash();
         }
+
+        // We exhausted all executed blocks, the target block must be canonical.
+        if number <= ancestor.number &&
+            inner.canonical_hashes_by_number.get(&ancestor.number) == Some(&ancestor.hash)
+        {
+            return inner.canonical_hashes_by_number.get(&number).cloned()
+        }
+
+        None
     }
 
     /// Inserts canonical hash for block number.

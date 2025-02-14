@@ -1,6 +1,6 @@
 //! EVM block executor implementation.
 
-use alloy_primitives::B256;
+use alloy_eips::BlockNumHash;
 use ress_provider::RessProvider;
 use reth_evm::execute::{BlockExecutionError, BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
@@ -20,9 +20,9 @@ pub struct BlockExecutor<'a> {
 
 impl<'a> BlockExecutor<'a> {
     /// Instantiate new block executor with chain spec and witness database.
-    pub fn new(provider: RessProvider, parent_hash: B256, trie: &'a SparseStateTrie) -> Self {
+    pub fn new(provider: RessProvider, parent: BlockNumHash, trie: &'a SparseStateTrie) -> Self {
         let chain_spec = provider.chain_spec();
-        let db = WitnessDatabase::new(provider, parent_hash, trie);
+        let db = WitnessDatabase::new(provider, parent, trie);
         let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
         let state =
             StateBuilder::new_with_database(db).with_bundle_update().without_state_clear().build();

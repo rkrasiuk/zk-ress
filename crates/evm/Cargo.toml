@@ -16,8 +16,9 @@ ress-provider.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
-alloy-trie.workspace = true
 alloy-rlp.workspace = true
+alloy-trie.workspace = true
+alloy-eips.workspace = true
 
 # reth
 reth-primitives.workspace = true

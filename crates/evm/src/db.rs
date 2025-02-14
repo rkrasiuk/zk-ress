@@ -1,5 +1,6 @@
 //! EVM database implementation.
 
+use alloy_eips::BlockNumHash;
 use alloy_primitives::{keccak256, Address, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
@@ -17,14 +18,14 @@ use tracing::trace;
 #[derive(Debug)]
 pub struct WitnessDatabase<'a> {
     provider: RessProvider,
-    parent_hash: B256,
+    parent: BlockNumHash,
     trie: &'a SparseStateTrie,
 }
 
 impl<'a> WitnessDatabase<'a> {
     /// Create new witness database.
-    pub fn new(provider: RessProvider, parent_hash: B256, trie: &'a SparseStateTrie) -> Self {
-        Self { provider, parent_hash, trie }
+    pub fn new(provider: RessProvider, parent: BlockNumHash, trie: &'a SparseStateTrie) -> Self {
+        Self { provider, parent, trie }
     }
 }
 
@@ -76,9 +77,9 @@ impl Database for WitnessDatabase<'_> {
 
     /// Get block hash by block number.
     fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
-        trace!(target: "ress::evm", block_number, parent_hash = %self.parent_hash, "retrieving block hash");
+        trace!(target: "ress::evm", block_number, parent = ?self.parent, "retrieving block hash");
         self.provider
-            .block_hash(self.parent_hash, &block_number)
+            .block_hash(self.parent, block_number)
             .ok_or(ProviderError::StateForNumberNotFound(block_number))
     }
 }

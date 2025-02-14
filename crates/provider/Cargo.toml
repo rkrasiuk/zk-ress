@@ -16,6 +16,7 @@ ress-protocol.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
+alloy-eips.workspace = true
 
 # reth
 reth-primitives.workspace = true

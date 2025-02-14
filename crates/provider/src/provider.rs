@@ -1,4 +1,5 @@
 use crate::{chain_state::ChainState, database::RessDatabase};
+use alloy_eips::BlockNumHash;
 use alloy_primitives::{
     map::{B256HashMap, B256HashSet},
     BlockHash, BlockNumber, Bytes, B256,
@@ -38,8 +39,8 @@ impl RessProvider {
 
     /// Finds block hash in memory for the target block number.
     /// Includes both canonical and pending blocks.
-    pub fn block_hash(&self, parent_hash: B256, number: &BlockNumber) -> Option<BlockHash> {
-        self.chain_state.block_hash(parent_hash, number)
+    pub fn block_hash(&self, parent: BlockNumHash, number: BlockNumber) -> Option<BlockHash> {
+        self.chain_state.block_hash(parent, number)
     }
 
     /// Return sealed block header by hash.

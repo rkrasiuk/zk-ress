@@ -5540,6 +5540,7 @@ dependencies = [
 name = "ress-evm"
 version = "0.1.0"
 dependencies = [
+ "alloy-eips",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-trie",
@@ -5605,6 +5606,7 @@ dependencies = [
 name = "ress-provider"
 version = "0.1.0"
 dependencies = [
+ "alloy-eips",
  "alloy-primitives",
  "derive_more",
  "eyre",
