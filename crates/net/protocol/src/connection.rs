@@ -167,7 +167,7 @@ where
             let witness = match provider.witness(block_hash).await {
                 Ok(Some(witness)) => {
                     trace!(target: "ress::net::connection", %block_hash, "witness found");
-                    StateWitnessNet::from_iter(witness)
+                    witness
                 }
                 Ok(None) => {
                     trace!(target: "ress::net::connection", %block_hash, "witness not found");

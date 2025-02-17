@@ -5696,6 +5696,7 @@ dependencies = [
  "reth-tasks",
  "reth-tokio-util",
  "reth-trie",
+ "schnellru",
  "tokio",
  "tracing",
 ]

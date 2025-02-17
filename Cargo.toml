@@ -201,6 +201,7 @@ metrics = "0.24.0"
 derive_more = { version = "1", default-features = false, features = ["full"] }
 strum = "0.27"
 strum_macros = "0.27"
+schnellru = "0.2"
 
 # for now disk using sqlite
 rusqlite = { version = "0.32.0", features = ["bundled"] }
