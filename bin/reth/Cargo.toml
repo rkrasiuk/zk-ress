@@ -12,7 +12,6 @@ workspace = true
 
 [dependencies]
 # ress
-ress-network.workspace = true
 ress-protocol.workspace = true
 
 # reth

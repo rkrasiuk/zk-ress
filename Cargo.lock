@@ -5685,7 +5685,6 @@ dependencies = [
  "eyre",
  "futures",
  "parking_lot",
- "ress-network",
  "ress-protocol",
  "reth 1.2.0",
  "reth-chain-state",
