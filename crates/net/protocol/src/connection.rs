@@ -284,10 +284,6 @@ where
                         if let Some(RessPeerRequest::GetWitness { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
-                            if res.message == StateWitnessNet::default() {
-                                warn!(target: "ress::net::connection", "witness is default");
-                            }
-                            // TODO: validate the witness.
                             let _ = tx.send(res.message);
                         } else {
                             // TODO: report bad message
