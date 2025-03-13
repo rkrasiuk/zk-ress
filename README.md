@@ -1,48 +1,76 @@
 # ress(reth stateless)
 
-## Hive test
+Ress (shorthand for: Reth Stateless), a fully validating stateless Ethereum Execution Layer with 14GB disk requirements. Stateless nodes matter not only for improving Ethereum’s decentralization, but also to scale the L1 gas limit, scaling optimistic L2s, and for implementing Native Rollups to improve the L2 ecosystem’s security & interoperability.
 
-Ress is testing with [hive](https://github.com/ethereum/hive). Simulator send request to `adapter`, which proxy `engine/*` request to `ress`, and other requests to `reth`. 
+> [!CAUTION]
+> Ress is an experimental software that has not been fully tested in production grade settings.
+> At this moment, we do not recommend using ress nodes in validator setups.
+
+## Run
+
+To run ress you need to either start a reth stateful node with `--ress.enable` to enable support for `ress` subprotocol or connect to a node which already has support enabled. You will need to provide the trusted peer manually:
+
+```bash
+ress --trusted-peers <peers>
+```
+
+To fetch the enode from a reth node you can do 
+```bash
+cast rpc admin_nodeInfo -r http://localhost:9545 | jq .enode
+```
+
+## How it works
+
+Live sync works like any other stateful node: Ress receives a new payload from the consensus client and fetches necessary state data (witness, block, bytecodes) from a stateful reth client via [RLPx subprotocol dedicated to Ress](https://github.com/paradigmxyz/reth/tree/main/crates/ress/protocol). It verfies payload and calculates the new state root all in memory.
+
+```mermaid
+sequenceDiagram
+    CL->>Ress: NewPayload
+    Ress->>Reth: GetWitness
+    Reth-->>Ress: Witness
+    Ress->>Reth: GetBytecode
+    Note over Ress,Reth: (only missing)
+    Reth-->>Ress: Bytecode
+    Ress->>Ress: Validate Payload
+    Ress-->>CL: PayloadStatus
+```
+
+### Components
+
+To run a ress node successfully you need the following components:
+1. Ress node (statless) connected to a Consensus Client
+2. Reth node (stateful) connected to a Consensus Client
+
+```mermaid
+flowchart TB
+    subgraph Stateful["Stateful Client Pair"]
+        SFCL["Consensus Layer"]
+        Reth["Reth Node"]
+        SFCL -->|Engine API| Reth
+    end
+    
+    subgraph Stateless["Stateless Client Pair"]
+        SLCL["Consensus Layer"]
+        Ress["Ress Node"]
+        SLCL -->|Engine API| Ress
+    end
+
+    Ress -->|ress RLPx subprotocol| Reth
+```
+
+## How it was tested
+
+### Hive Tests 
+
+Ress was tested with [hive](https://github.com/ethereum/hive). A simulator sends requests to `adapter`, which proxies `engine/*` request to `ress`, and other requests to `reth`. 
 
 - `reth`: auth port(8651), rpc port(8544), subnetwork(30303)
 - `ress`: auth port(8552), rpc port(-), subnetwork(61398)
 
-
-## run hive
-
-- reth with subprotocol
-```console
-RUST_LOG=info cargo run -r --bin reth node --authrpc.port 8651 --http.port 8544 -d --trusted-peers enode://4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d07662a3eada2d0fe208b6d257ceb0f064284662e857f57b66b54c198bd310ded36d0@127.0.0.1:61398
+We ran the cancun test suite and from the 226 tests, ress passes `206` hive tests successfully:
+```
+Mar 13 09:46:28.033 INF simulation ethereum/engine finished suites=1 tests=226 failed=20
 ```
 
-- ress
-```console
-RUST_LOG=info cargo run -r --bin ress -- --remote-peer "enode://cc25edb29102f8307282b9217971563801e3db4fb424e61ff39162d7659675426a4f5710e56de9857c2f666283bc04fc009a3cfccf20ef6827a660317ecb18e0@127.0.0.1:30303" 2
-```
-
-## run dev env
-
-- ress 1
-```console
-RUST_LOG=info cargo run --bin ress 1 --enable-debug-consensus --enable-rpc-adapter
-```
-
-- ress 2
-```console
-RUST_LOG=info cargo run --bin ress 2 --enable-debug-consensus --enable-rpc-adapter
-```
-
-
-## component
-
-- binary
-  - [reth](./bin/reth): run original reth client that added custom subprotocol to communicate with ress
-  - [ress](./bin/ress): run resss client - stateless execution client
-
-- crates
-  - [ress-common](./crates/common): ress common
-  - [ress-network](./crates/network): provide functions to spawn authserver and network.
-  - [ress-node](./crates/node): provide abstraction of launch the node and inner consensus engine implementation
-  - [ress-storage](./crates/storage): provide abstraction of storage that handles 3 backends (disk, in memory, network) based on request.
-  - [ress-vm](./crates/vm): provide executor that can execute evm from new block
-  - [subprotocol](./crates/subprotocol/)
+### Holesky validators
+ For our proof of concept, we successfully [ran Ress-backed Ethereum validators](https://holesky.beaconcha.in/dashboard?validators=1919380,1919381,1919382,1919383,1919384,1919385,1919386,1919387,1919388,1919389#validators-table) on Holesky testnet and correctly attested to block validity.
