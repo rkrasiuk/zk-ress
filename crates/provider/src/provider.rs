@@ -51,8 +51,8 @@ impl RessProvider {
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>) {
-        self.chain_state.insert_block(block);
+    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<Vec<Bytes>>) {
+        self.chain_state.insert_block(block, maybe_witness);
     }
 
     /// Returns `true` if bytecode exists in the database.
@@ -97,7 +97,7 @@ impl RessProvider {
         }
     }
 
-    /// Remove blocks from chain state on finalized.
+    /// Remove blocks and witnesses from chain state on finalized.
     pub fn on_finalized(&self, finalized_hash: &B256) {
         if !finalized_hash.is_zero() {
             self.chain_state.remove_blocks_on_finalized(finalized_hash);
@@ -118,8 +118,7 @@ impl RessProtocolProvider for RessProvider {
         Ok(self.database.get_bytecode(code_hash)?.map(|b| b.original_bytes()))
     }
 
-    // TODO: implement
-    async fn witness(&self, _block_hash: B256) -> ProviderResult<Vec<Bytes>> {
-        Ok(Vec::new())
+    async fn witness(&self, block_hash: B256) -> ProviderResult<Vec<Bytes>> {
+        Ok(self.chain_state.witness(&block_hash).unwrap_or_default())
     }
 }
