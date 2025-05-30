@@ -6,15 +6,13 @@ use alloy_primitives::{map::B256HashSet, B256};
 use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
 use metrics::Histogram;
-use ress_network::RessNetworkHandle;
-use ress_primitives::witness::ExecutionWitness;
-use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
 use reth_engine_tree::tree::error::InsertBlockFatalError;
 use reth_errors::ProviderError;
 use reth_metrics::Metrics;
 use reth_node_api::{BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError};
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes, EthereumEngineValidator};
+use reth_zk_ress_protocol::ExecutionProof;
 use std::{
     future::Future,
     pin::Pin,
@@ -27,35 +25,41 @@ use tokio::{
 };
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
+use zk_ress_network::RessNetworkHandle;
+use zk_ress_provider::ZkRessProvider;
+use zk_ress_verifier::BlockVerifier;
 
 /// Metrics for the consensus engine
 #[derive(Metrics)]
 #[metrics(scope = "engine")]
 pub(crate) struct ConsensusEngineMetrics {
-    /// Histogram of witness sizes in bytes.
-    pub witness_size_bytes: Histogram,
-    /// Histogram of witness node counts.
-    pub witness_nodes_count: Histogram,
+    /// Histogram of proof sizes in bytes.
+    pub proof_size_bytes: Histogram,
 }
 
 /// Ress consensus engine.
 #[allow(missing_debug_implementations)]
-pub struct ConsensusEngine {
-    tree: EngineTree,
-    downloader: EngineDownloader,
+pub struct ConsensusEngine<T, V> {
+    tree: EngineTree<T, V>,
+    downloader: EngineDownloader<T>,
     from_beacon_engine: UnboundedReceiverStream<BeaconEngineMessage<EthEngineTypes>>,
     parked_payload_timeout: Duration,
     parked_payload: Option<ParkedPayload>,
     metrics: ConsensusEngineMetrics,
 }
 
-impl ConsensusEngine {
+impl<T, V> ConsensusEngine<T, V>
+where
+    T: ExecutionProof,
+    V: BlockVerifier<Proof = T>,
+{
     /// Initialize consensus engine.
     pub fn new(
-        provider: RessProvider,
+        provider: ZkRessProvider<T>,
         consensus: EthBeaconConsensus<ChainSpec>,
         engine_validator: EthereumEngineValidator,
-        network: RessNetworkHandle,
+        block_verifier: V,
+        network: RessNetworkHandle<T>,
         from_beacon_engine: mpsc::UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
         engine_events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
     ) -> Self {
@@ -64,6 +68,7 @@ impl ConsensusEngine {
                 provider,
                 consensus.clone(),
                 engine_validator,
+                block_verifier,
                 engine_events_sender,
             ),
             downloader: EngineDownloader::new(network, consensus),
@@ -84,12 +89,12 @@ impl ConsensusEngine {
         match event {
             TreeEvent::Download(DownloadRequest::Block { block_hash }) => {
                 self.downloader.download_full_block(block_hash);
-                if !self.tree.block_buffer.witnesses.contains_key(&block_hash) {
-                    self.downloader.download_witness(block_hash);
+                if !self.tree.block_buffer.proofs.contains_key(&block_hash) {
+                    self.downloader.download_proof(block_hash);
                 }
             }
-            TreeEvent::Download(DownloadRequest::Witness { block_hash }) => {
-                self.downloader.download_witness(block_hash);
+            TreeEvent::Download(DownloadRequest::Proof { block_hash }) => {
+                self.downloader.download_proof(block_hash);
             }
             TreeEvent::Download(DownloadRequest::Finalized { block_hash }) => {
                 self.downloader.download_finalized_with_ancestors(block_hash);
@@ -102,7 +107,7 @@ impl ConsensusEngine {
 
     fn on_download_outcome(
         &mut self,
-        outcome: DownloadOutcome,
+        outcome: DownloadOutcome<T>,
     ) -> Result<(), InsertBlockFatalError> {
         let elapsed = outcome.elapsed;
         let mut unlocked_block_hashes = B256HashSet::default();
@@ -135,50 +140,22 @@ impl ConsensusEngine {
                 self.tree.block_buffer.insert_block(recovered);
                 unlocked_block_hashes.insert(block_num_hash.hash);
             }
-            DownloadData::Witness(block_hash, witness) => {
-                let code_hashes = witness.bytecode_hashes().clone();
-                let missing_code_hashes =
-                    self.tree.provider.missing_code_hashes(code_hashes).map_err(|error| {
-                        InsertBlockFatalError::Provider(ProviderError::Database(error))
-                    })?;
-                let missing_bytecodes_len = missing_code_hashes.len();
-                let rlp_size = humansize::format_size(witness.rlp_size_bytes(), humansize::DECIMAL);
-                let witness_nodes_count = witness.state_witness().len();
+            DownloadData::Proof(block_hash, witness) => {
+                let rlp_size = humansize::format_size(witness.length(), humansize::DECIMAL);
 
                 // Record witness metrics before inserting the witness
-                self.record_witness_metrics(&witness);
+                self.record_proof_metrics(&witness);
 
-                self.tree.block_buffer.insert_witness(
-                    block_hash,
-                    witness,
-                    missing_code_hashes.clone(),
-                );
+                self.tree.block_buffer.insert_proof(block_hash, witness);
 
                 if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
                 {
-                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, witness_nodes_count, ?elapsed, "Downloaded for parked payload");
+                    info!(target: "ress::engine", %block_hash, %rlp_size, ?elapsed, "Downloaded for parked payload");
                 } else {
-                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, witness_nodes_count, ?elapsed, "Downloaded witness");
+                    trace!(target: "ress::engine", %block_hash, %rlp_size, ?elapsed, "Downloaded witness");
                 }
-                if missing_code_hashes.is_empty() {
-                    unlocked_block_hashes.insert(block_hash);
-                } else {
-                    for code_hash in missing_code_hashes {
-                        self.downloader.download_bytecode(code_hash);
-                    }
-                }
-            }
-            DownloadData::Bytecode(code_hash, bytecode) => {
-                trace!(target: "ress::engine", %code_hash, ?elapsed, "Downloaded bytecode");
-                match self.tree.provider.insert_bytecode(code_hash, bytecode) {
-                    Ok(()) => {
-                        unlocked_block_hashes
-                            .extend(self.tree.block_buffer.on_bytecode_received(code_hash));
-                    }
-                    Err(error) => {
-                        error!(target: "ress::engine", %error, "Failed to insert the bytecode");
-                    }
-                };
+
+                unlocked_block_hashes.insert(block_hash);
             }
         };
 
@@ -221,18 +198,18 @@ impl ConsensusEngine {
             BeaconEngineMessage::NewPayload { payload, tx } => {
                 let block_hash = payload.block_hash();
                 let block_number = payload.block_number();
-                let maybe_witness = self.tree.block_buffer.remove_witness(&payload.block_hash());
-                let has_witness = maybe_witness.is_some();
-                debug!(target: "ress::engine", block_number, %block_hash, has_witness, "Inserting new payload");
+                let maybe_proof = self.tree.block_buffer.remove_proof(&payload.block_hash());
+                let has_proof = maybe_proof.is_some();
+                debug!(target: "ress::engine", block_number, %block_hash, has_proof, "Inserting new payload");
                 let mut result = self
                     .tree
-                    .on_new_payload(payload, maybe_witness)
+                    .on_new_payload(payload, maybe_proof)
                     .map_err(BeaconOnNewPayloadError::internal);
                 if let Ok(outcome) = &mut result {
                     if let Some(event) = outcome.event.take() {
                         self.on_tree_event(event.clone());
                         if let Some(block_hash) =
-                            event.as_witness_download().filter(|_| outcome.outcome.is_syncing())
+                            event.as_proof_download().filter(|_| outcome.outcome.is_syncing())
                         {
                             debug!(target: "ress::engine", block_number, %block_hash, "Parking payload due to missing witness");
                             self.parked_payload = Some(ParkedPayload::new(
@@ -242,8 +219,8 @@ impl ConsensusEngine {
                             ));
                             return
                         }
-                        if !has_witness {
-                            self.on_tree_event(TreeEvent::download_witness(block_hash));
+                        if !has_proof {
+                            self.on_tree_event(TreeEvent::download_proof(block_hash));
                         }
                     }
                 }
@@ -270,23 +247,21 @@ impl ConsensusEngine {
                     error!(target: "ress::engine", ?error, "Failed to send forkchoice outcome");
                 }
             }
-            BeaconEngineMessage::TransitionConfigurationExchanged => {
-                warn!(target: "ress::engine", "Received unsupported `TransitionConfigurationExchanged` message");
-            }
         }
     }
 
-    /// Record witness metrics
-    fn record_witness_metrics(&self, witness: &ExecutionWitness) {
-        let witness_size_bytes = witness.rlp_size_bytes();
-        let witness_nodes_count = witness.state_witness().len();
-
-        self.metrics.witness_size_bytes.record(witness_size_bytes as f64);
-        self.metrics.witness_nodes_count.record(witness_nodes_count as f64);
+    /// Record proof metrics
+    fn record_proof_metrics(&self, proof: &T) {
+        let proof_size_bytes = proof.length();
+        self.metrics.proof_size_bytes.record(proof_size_bytes as f64);
     }
 }
 
-impl Future for ConsensusEngine {
+impl<T, V> Future for ConsensusEngine<T, V>
+where
+    T: ExecutionProof,
+    V: BlockVerifier<Proof = T>,
+{
     type Output = Result<(), InsertBlockFatalError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

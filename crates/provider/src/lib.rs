@@ -4,11 +4,7 @@
 
 /// Main provider for retrieving data.
 mod provider;
-pub use provider::RessProvider;
-
-/// Ress database.
-mod database;
-pub use database::RessDatabase;
+pub use provider::ZkRessProvider;
 
 /// Chain state.
 mod chain_state;

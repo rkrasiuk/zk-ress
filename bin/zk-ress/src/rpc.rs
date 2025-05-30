@@ -7,20 +7,20 @@ use alloy_rpc_types_eth::{
 };
 use alloy_serde::JsonStorageKey;
 use jsonrpsee::core::RpcResult as Result;
-use ress_provider::RessProvider;
 use reth_rpc_api::{
     eth::{RpcBlock, RpcReceipt},
     EngineEthApiServer,
 };
 use reth_rpc_eth_types::EthApiError;
+use zk_ress_provider::ZkRessProvider;
 
 /// Implementation of minimal eth RPC interface for Engine API.
 #[derive(Debug)]
-pub struct RessEthRpc(RessProvider);
+pub struct RessEthRpc<T>(ZkRessProvider<T>);
 
-impl RessEthRpc {
+impl<T> RessEthRpc<T> {
     /// Creates new ress RPC provider.
-    pub fn new(provider: RessProvider) -> Self {
+    pub fn new(provider: ZkRessProvider<T>) -> Self {
         Self(provider)
     }
 }
@@ -28,7 +28,10 @@ impl RessEthRpc {
 /// Minimal eth RPC interface for Engine API.
 /// Ref: <https://github.com/ethereum/execution-apis/blob/main/src/engine/common.md#underlying-protocol>
 #[async_trait::async_trait]
-impl EngineEthApiServer<RpcBlock<Ethereum>, RpcReceipt<Ethereum>> for RessEthRpc {
+impl<T> EngineEthApiServer<RpcBlock<Ethereum>, RpcReceipt<Ethereum>> for RessEthRpc<T>
+where
+    T: Clone + Send + Sync + 'static,
+{
     /// Handler for: `eth_syncing`
     fn syncing(&self) -> Result<SyncStatus> {
         Ok(SyncStatus::None)

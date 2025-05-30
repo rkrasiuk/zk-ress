@@ -22,8 +22,8 @@ use std::{
 
 /// Ress CLI interface.
 #[derive(Clone, Debug, Parser)]
-#[command(author, version, about = "Ress", long_about = None)]
-pub struct RessArgs {
+#[command(author, version, about = "ZkRess", long_about = None)]
+pub struct ZkRessArgs {
     /// The chain this node is running.
     ///
     /// Possible values are either a built-in chain or the path to a chain specification file.
@@ -36,23 +36,23 @@ pub struct RessArgs {
     )]
     pub chain: Arc<ChainSpec>,
 
-    /// The path to the data dir for all ress files and subdirectories.
+    /// The path to the data dir for all zk-ress files and subdirectories.
     ///
     /// Defaults to the OS-specific data directory:
     ///
-    /// - Linux: `$XDG_DATA_HOME/ress/` or `$HOME/.local/share/ress/`
-    /// - Windows: `{FOLDERID_RoamingAppData}/ress/`
-    /// - macOS: `$HOME/Library/Application Support/ress/`
+    /// - Linux: `$XDG_DATA_HOME/zk-ress/` or `$HOME/.local/share/zk-ress/`
+    /// - Windows: `{FOLDERID_RoamingAppData}/zk-ress/`
+    /// - macOS: `$HOME/Library/Application Support/zk-ress/`
     #[arg(long, value_name = "DATA_DIR", verbatim_doc_comment, default_value_t)]
     pub datadir: MaybePlatformPath<DataDirPath>,
 
     /// Network args.
     #[clap(flatten)]
-    pub network: RessNetworkArgs,
+    pub network: ZkRessNetworkArgs,
 
     /// RPC args.
     #[clap(flatten)]
-    pub rpc: RessRpcArgs,
+    pub rpc: ZkRessRpcArgs,
 
     /// Debug args.
     #[clap(flatten)]
@@ -65,9 +65,9 @@ pub struct RessArgs {
     pub metrics: Option<SocketAddr>,
 }
 
-/// Ress networking args.
+/// ZkRess networking args.
 #[derive(Clone, Debug, Args)]
-pub struct RessNetworkArgs {
+pub struct ZkRessNetworkArgs {
     /// Network listening address
     #[arg(long = "addr", value_name = "ADDR", default_value_t = DEFAULT_DISCOVERY_ADDR)]
     pub addr: IpAddr,
@@ -83,7 +83,7 @@ pub struct RessNetworkArgs {
     #[arg(long, value_name = "PATH")]
     pub p2p_secret_key: Option<PathBuf>,
 
-    /// Maximum active connections for `ress` subprotocol.
+    /// Maximum active connections for `zk-ress` subprotocol.
     #[arg(long, default_value_t = 256)]
     pub max_active_connections: u64,
 
@@ -95,7 +95,7 @@ pub struct RessNetworkArgs {
     pub trusted_peers: Vec<TrustedPeer>,
 }
 
-impl RessNetworkArgs {
+impl ZkRessNetworkArgs {
     /// Returns network socket address.
     pub fn listener_addr(&self) -> SocketAddr {
         SocketAddr::new(self.addr, self.port)
@@ -107,9 +107,9 @@ impl RessNetworkArgs {
     }
 }
 
-/// Ress RPC args.
+/// ZkRess RPC args.
 #[derive(Clone, Debug, Args)]
-pub struct RessRpcArgs {
+pub struct ZkRessRpcArgs {
     /// Auth server address to listen on
     #[arg(long = "authrpc.addr", default_value_t = IpAddr::V4(Ipv4Addr::LOCALHOST))]
     pub auth_addr: IpAddr,
@@ -128,7 +128,7 @@ pub struct RessRpcArgs {
     pub auth_jwtsecret: Option<PathBuf>,
 }
 
-impl RessRpcArgs {
+impl ZkRessRpcArgs {
     /// Returns auth RPC socker address.
     pub fn auth_rpc_addr(&self) -> SocketAddr {
         SocketAddr::new(self.auth_addr, self.auth_port)
@@ -147,7 +147,7 @@ impl RessRpcArgs {
     }
 }
 
-/// Ress debug args.
+/// ZkRess debug args.
 #[derive(Clone, Debug, Args)]
 pub struct DebugArgs {
     /// Url for debug consensus client.
@@ -173,18 +173,11 @@ impl XdgPath for DataDirPath {
     }
 }
 
-/// Returns the path to the ress data directory.
+/// Returns the path to the zk-ress data directory.
 ///
 /// Refer to [`dirs_next::data_dir`] for cross-platform behavior.
 pub fn data_dir() -> Option<PathBuf> {
-    dirs_next::data_dir().map(|root| root.join("ress"))
-}
-
-/// Returns the path to the ress database.
-///
-/// Refer to [`dirs_next::data_dir`] for cross-platform behavior.
-pub fn database_path() -> Option<PathBuf> {
-    data_dir().map(|root| root.join("db"))
+    dirs_next::data_dir().map(|root| root.join("zk-ress"))
 }
 
 /// An Optional wrapper type around [`PlatformPath`].
@@ -239,9 +232,3 @@ impl<D> FromStr for MaybePlatformPath<D> {
         Ok(Self(p))
     }
 }
-
-// impl<D> From<PathBuf> for MaybePlatformPath<D> {
-//     fn from(path: PathBuf) -> Self {
-//         Self(Some(PlatformPath(path, std::marker::PhantomData)))
-//     }
-// }

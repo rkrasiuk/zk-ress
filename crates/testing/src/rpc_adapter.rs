@@ -1,18 +1,14 @@
-use alloy_primitives::{Bytes, B256};
+use alloy_primitives::B256;
 use alloy_provider::{Provider, RootProvider, WsConnect};
 use alloy_rlp::Encodable;
 use alloy_rpc_client::ClientBuilder;
 use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_eth::{Block, BlockId, BlockNumberOrTag, BlockTransactionsKind};
 use futures::{stream::FuturesOrdered, StreamExt};
-use parking_lot::RwLock;
 use reth_network::eth_requests::{MAX_BODIES_SERVE, MAX_HEADERS_SERVE, SOFT_RESPONSE_LIMIT};
-use reth_primitives::{BlockBody, Bytecode, Header, TransactionSigned};
-use reth_ress_protocol::{GetHeaders, RessPeerRequest};
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    sync::Arc,
-};
+use reth_primitives::{BlockBody, Header, TransactionSigned};
+use reth_ress_protocol::GetHeaders;
+use reth_zk_ress_protocol::ZkRessPeerRequest;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 use tungstenite::protocol::WebSocketConfig;
@@ -21,7 +17,6 @@ use tungstenite::protocol::WebSocketConfig;
 #[derive(Clone, Debug)]
 pub struct RpcNetworkAdapter {
     provider: RootProvider,
-    bytecodes: Arc<RwLock<HashMap<B256, Bytes>>>,
 }
 
 impl RpcNetworkAdapter {
@@ -34,7 +29,7 @@ impl RpcNetworkAdapter {
                     .max_frame_size(Some(64 << 20)),
             ))
             .await?;
-        Ok(Self { provider: RootProvider::new(client), bytecodes: Default::default() })
+        Ok(Self { provider: RootProvider::new(client) })
     }
 
     async fn block(
@@ -122,10 +117,15 @@ impl RpcNetworkAdapter {
     }
 
     /// Run RPC network adapter to respond to peer requests.
-    pub async fn run(self, mut request_stream: UnboundedReceiverStream<RessPeerRequest>) {
+    pub async fn run(
+        self,
+        mut request_stream: UnboundedReceiverStream<
+            ZkRessPeerRequest<reth_ress_protocol::ExecutionWitness>,
+        >,
+    ) {
         while let Some(request) = request_stream.next().await {
             match request {
-                RessPeerRequest::GetHeaders { request, tx } => {
+                ZkRessPeerRequest::GetHeaders { request, tx } => {
                     let provider = self.clone();
                     tokio::spawn(async move {
                         let headers = provider.on_headers_request(request).await;
@@ -134,7 +134,7 @@ impl RpcNetworkAdapter {
                         }
                     });
                 }
-                RessPeerRequest::GetBlockBodies { request, tx } => {
+                ZkRessPeerRequest::GetBlockBodies { request, tx } => {
                     let provider = self.clone();
                     tokio::spawn(async move {
                         let bodies = provider.on_block_bodies_request(request.clone()).await;
@@ -143,13 +143,7 @@ impl RpcNetworkAdapter {
                         }
                     });
                 }
-                RessPeerRequest::GetBytecode { code_hash, tx } => {
-                    let maybe_bytecode = self.bytecodes.read().get(&code_hash).cloned();
-                    if tx.send(maybe_bytecode.unwrap_or_default()).is_err() {
-                        debug!(target: "ress::rpc_adapter", %code_hash, "Failed to send bytecode");
-                    }
-                }
-                RessPeerRequest::GetWitness { block_hash, tx } => {
+                ZkRessPeerRequest::GetProof { block_hash, tx } => {
                     let provider = self.clone();
                     tokio::spawn(async move {
                         let maybe_block =
@@ -164,16 +158,10 @@ impl RpcNetworkAdapter {
                                     debug!(target: "ress::rpc_adapter", %block_hash, %error, "Failed to request witness from provider");
                                 })
                                 .ok();
-                            if let Some(witness) = &maybe_witness {
-                                let mut bytecodes_ = provider.bytecodes.write();
-                                for bytecode in &witness.codes {
-                                    let code_hash = Bytecode::new_raw(bytecode.clone()).hash_slow();
-                                    if let Entry::Vacant(entry) = bytecodes_.entry(code_hash) {
-                                        entry.insert(bytecode.clone());
-                                    }
-                                }
-                            }
-                            maybe_witness.map(|witness| witness.state)
+                            maybe_witness.map(|witness| reth_ress_protocol::ExecutionWitness {
+                                state: witness.state,
+                                bytecodes: witness.codes,
+                            })
                         } else {
                             None
                         };
