@@ -257,6 +257,7 @@ mod tests {
     use reth_primitives_traits::RecoveredBlock;
     use reth_testing_utils::generators::{self, random_block, BlockParams, Rng};
     use std::collections::HashMap;
+    use zk_ress_primitives::witness::ExecutionWitness;
 
     /// Create random block with specified number and parent hash.
     fn create_block<R: Rng>(
@@ -270,13 +271,16 @@ mod tests {
     }
 
     /// Insert block with default proof.
-    fn insert_block_with_proof<B: Block>(buffer: &mut BlockBuffer<B>, block: RecoveredBlock<B>) {
+    fn insert_block_with_proof<B: Block>(
+        buffer: &mut BlockBuffer<B, ExecutionWitness>,
+        block: RecoveredBlock<B>,
+    ) {
         buffer.insert_proof(block.hash(), Default::default());
         buffer.insert_block(block);
     }
 
     /// Assert that all buffer collections have the same data length.
-    fn assert_buffer_lengths<B: Block>(buffer: &BlockBuffer<B>, expected: usize) {
+    fn assert_buffer_lengths<B: Block>(buffer: &BlockBuffer<B, ExecutionWitness>, expected: usize) {
         assert_eq!(buffer.blocks.len(), expected);
         assert_eq!(buffer.lru.len(), expected);
         assert_eq!(
@@ -291,7 +295,7 @@ mod tests {
 
     /// Assert that the block was removed from all buffer collections.
     fn assert_block_removal<B: Block>(
-        buffer: &BlockBuffer<B>,
+        buffer: &BlockBuffer<B, ExecutionWitness>,
         block: &RecoveredBlock<reth_primitives::Block>,
     ) {
         assert!(!buffer.blocks.contains_key(&block.hash()));
