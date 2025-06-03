@@ -11493,7 +11493,6 @@ dependencies = [
  "tracing",
  "zk-ress-evm",
  "zk-ress-network",
- "zk-ress-primitives",
  "zk-ress-provider",
  "zk-ress-verifier",
 ]
@@ -11532,16 +11531,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
-]
-
-[[package]]
-name = "zk-ress-primitives"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "alloy-rlp",
- "alloy-trie",
- "serde",
 ]
 
 [[package]]
