@@ -18,9 +18,6 @@ use tracing::*;
 use zk_ress_evm::BlockExecutor;
 use zk_ress_provider::ZkRessProvider;
 
-mod root;
-use root::calculate_state_root;
-
 pub trait BlockVerifier: Unpin {
     type Proof: ExecutionProof;
 
