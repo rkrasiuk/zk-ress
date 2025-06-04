@@ -98,6 +98,7 @@ reth-storage-errors = { git = "https://github.com/kevaundray/reth", branch = "kw
 reth-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }
 
 ## db
+reth-stateless = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }
 reth-db = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }
 reth-db-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }
 reth-storage-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }

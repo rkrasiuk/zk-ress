@@ -8166,6 +8166,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-stateless"
+version = "1.4.3"
+source = "git+https://github.com/kevaundray/reth?branch=kw%2Fzk-ress-additions#83686554176ae90b9f894e79ff2f311f475d41ba"
+dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-rpc-types-debug",
+ "alloy-trie",
+ "itertools 0.14.0",
+ "reth-chainspec",
+ "reth-consensus",
+ "reth-errors",
+ "reth-ethereum-consensus",
+ "reth-ethereum-primitives",
+ "reth-evm",
+ "reth-primitives-traits",
+ "reth-revm",
+ "reth-trie-common",
+ "reth-trie-sparse",
+ "serde",
+ "serde_with",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "reth-static-file"
 version = "1.4.3"
 source = "git+https://github.com/kevaundray/reth?branch=kw%2Fzk-ress-additions#83686554176ae90b9f894e79ff2f311f475d41ba"
@@ -11585,9 +11611,11 @@ dependencies = [
  "reth-consensus",
  "reth-errors",
  "reth-ethereum-consensus",
+ "reth-evm-ethereum",
  "reth-primitives",
  "reth-ress-protocol",
  "reth-revm",
+ "reth-stateless",
  "reth-trie",
  "reth-trie-sparse",
  "reth-zk-ress-protocol",
