@@ -21,12 +21,8 @@ use zk_ress_provider::ZkRessProvider;
 pub trait BlockVerifier: Unpin {
     type Proof: ExecutionProof;
 
-    fn verify(
-        &self,
-        block: RecoveredBlock<Block>,
-        parent: SealedHeader,
-        proof: Self::Proof,
-    ) -> Result<(), VerifierError>;
+    fn verify(&self, block: RecoveredBlock<Block>, proof: Self::Proof)
+        -> Result<(), VerifierError>;
 }
 
 /// All error variants possible when verifying a block.
@@ -70,7 +66,6 @@ impl BlockVerifier for ExecutionWitnessVerifier {
     fn verify(
         &self,
         block: RecoveredBlock<Block>,
-        parent: SealedHeader,
         proof: Self::Proof,
     ) -> Result<(), VerifierError> {
         let chain_spec = self.provider.chain_spec();
