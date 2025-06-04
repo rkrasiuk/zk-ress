@@ -54,31 +54,6 @@ impl<T: Clone> ChainState<T> {
         self.0.read().canonical_hashes_by_number.values().contains(hash)
     }
 
-    /// Returns block hash for a given block number.
-    /// If no canonical hash is found, traverses parent hashes from the given block hash
-    /// to find an ancestor at the specified block number.
-    pub fn block_hash(&self, parent: BlockNumHash, number: BlockNumber) -> Option<BlockHash> {
-        let inner = self.0.read();
-
-        // First traverse the ancestors and attempt to find the block number in executed blocks.
-        let mut ancestor = parent;
-        while let Some(block) = inner.blocks_by_hash.get(&ancestor.hash) {
-            if block.number == number {
-                return Some(block.hash())
-            }
-            ancestor = block.parent_num_hash();
-        }
-
-        // We exhausted all executed blocks, the target block must be canonical.
-        if number <= ancestor.number &&
-            inner.canonical_hashes_by_number.get(&ancestor.number) == Some(&ancestor.hash)
-        {
-            return inner.canonical_hashes_by_number.get(&number).cloned()
-        }
-
-        None
-    }
-
     /// Inserts canonical hash for block number.
     pub fn insert_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
         self.0.write().canonical_hashes_by_number.insert(number, hash);
