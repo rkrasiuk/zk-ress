@@ -13,7 +13,6 @@ workspace = true
 [dependencies]
 # ress
 zk-ress-provider.workspace = true
-zk-ress-evm.workspace = true
 zk-ress-network.workspace = true
 zk-ress-verifier.workspace = true
 
