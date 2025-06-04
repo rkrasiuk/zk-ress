@@ -704,7 +704,7 @@ where
             return Ok(InsertPayloadOk::Inserted(BlockStatus::NoProof))
         };
         self.block_verifier
-            .verify(block.clone(), parent, proof.clone())
+            .verify(block.clone(), proof.clone())
             .map_err(|error| InsertBlockErrorKind::Other(Box::new(error)))?;
 
         // TODO: move

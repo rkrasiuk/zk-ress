@@ -32,12 +32,6 @@ impl<T: Clone> ZkRessProvider<T> {
         self.chain_state.is_hash_canonical(hash)
     }
 
-    /// Finds block hash in memory for the target block number.
-    /// Includes both canonical and pending blocks.
-    pub fn block_hash(&self, parent: BlockNumHash, number: BlockNumber) -> Option<BlockHash> {
-        self.chain_state.block_hash(parent, number)
-    }
-
     /// Return block number by hash.
     pub fn block_number(&self, hash: &B256) -> Option<BlockNumber> {
         self.chain_state.block_number(hash)
