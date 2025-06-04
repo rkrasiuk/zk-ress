@@ -102,7 +102,7 @@ impl BlockVerifier for ExecutionWitnessVerifier {
             .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))?;
 
         let mut bytecodes = B256Map::default();
-        for bytes in proof.bytecodes {
+        for bytes in proof.codes {
             let bytecode = Bytecode::new_raw(bytes);
             bytecodes.insert(bytecode.hash_slow(), bytecode);
         }
