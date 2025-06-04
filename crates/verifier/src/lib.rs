@@ -59,7 +59,8 @@ impl BlockVerifier for ExecutionWitnessVerifier {
         let chain_spec = self.provider.chain_spec();
 
         let evm_config = EthEvmConfig::new(chain_spec.clone());
-        // TODO: Merge these two types
+
+        // TODO: Merge these two `ExecutionWitness` types
         let execution_witness = reth_stateless::ExecutionWitness {
             state: proof.state,
             codes: proof.codes,
