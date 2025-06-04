@@ -11603,25 +11603,14 @@ dependencies = [
 name = "zk-ress-verifier"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives",
- "alloy-rlp",
- "itertools 0.14.0",
- "rayon",
- "reth-chainspec",
- "reth-consensus",
  "reth-errors",
- "reth-ethereum-consensus",
  "reth-evm-ethereum",
  "reth-primitives",
  "reth-ress-protocol",
- "reth-revm",
  "reth-stateless",
- "reth-trie",
- "reth-trie-sparse",
  "reth-zk-ress-protocol",
  "thiserror 2.0.12",
  "tracing",
- "zk-ress-evm",
  "zk-ress-provider",
 ]
 

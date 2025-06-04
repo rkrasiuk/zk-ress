@@ -13,27 +13,14 @@ workspace = true
 [dependencies]
 # ress
 zk-ress-provider.workspace = true
-zk-ress-evm.workspace = true
-
-# alloy
-alloy-primitives.workspace = true
-alloy-rlp.workspace = true
 
 # reth
 reth-stateless.workspace = true
 reth-ress-protocol.workspace = true
 reth-zk-ress-protocol.workspace = true
 reth-primitives.workspace = true
-reth-chainspec.workspace = true
-reth-consensus.workspace = true
-reth-ethereum-consensus.workspace = true
-reth-revm.workspace = true
-reth-trie.workspace = true
-reth-trie-sparse.workspace = true
 reth-errors.workspace = true
 reth-evm-ethereum.workspace = true
 # misc
-rayon.workspace = true
-itertools.workspace = true
 thiserror.workspace = true
 tracing.workspace = true

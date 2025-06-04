@@ -1,21 +1,13 @@
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+
 //! Block verifier for `zk-ress` stateless client.
 
-use alloy_primitives::{keccak256, map::B256Map};
-use rayon::prelude::*;
-use reth_chainspec::ChainSpec;
-use reth_consensus::{Consensus as _, FullConsensus, HeaderValidator as _};
 use reth_errors::{BlockExecutionError, ConsensusError, ProviderError};
-use reth_ethereum_consensus::EthBeaconConsensus;
 use reth_evm_ethereum::EthEvmConfig;
-use reth_primitives::{Block, EthPrimitives, GotExpected, RecoveredBlock, SealedHeader};
+use reth_primitives::{Block, RecoveredBlock};
 use reth_ress_protocol::ExecutionWitness;
-use reth_revm::state::Bytecode;
-use reth_trie::{HashedPostState, KeccakKeyHasher};
-use reth_trie_sparse::{blinded::DefaultBlindedProviderFactory, SparseStateTrie};
 use reth_zk_ress_protocol::ExecutionProof;
-use std::time::Instant;
 use tracing::*;
-use zk_ress_evm::BlockExecutor;
 use zk_ress_provider::ZkRessProvider;
 
 pub trait BlockVerifier: Unpin {
@@ -47,16 +39,12 @@ pub enum VerifierError {
 #[derive(Debug)]
 pub struct ExecutionWitnessVerifier {
     provider: ZkRessProvider<ExecutionWitness>,
-    consensus: EthBeaconConsensus<ChainSpec>,
 }
 
 impl ExecutionWitnessVerifier {
     /// Create new execution witness block verifier.
-    pub fn new(
-        provider: ZkRessProvider<ExecutionWitness>,
-        consensus: EthBeaconConsensus<ChainSpec>,
-    ) -> Self {
-        Self { provider, consensus }
+    pub fn new(provider: ZkRessProvider<ExecutionWitness>) -> Self {
+        Self { provider }
     }
 }
 
