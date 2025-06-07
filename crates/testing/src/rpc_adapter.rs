@@ -80,7 +80,7 @@ impl RpcNetworkAdapter {
             total_bytes += header.length();
             headers.push(header);
             if total_bytes > SOFT_RESPONSE_LIMIT {
-                break
+                break;
             }
         }
 
@@ -109,7 +109,7 @@ impl RpcNetworkAdapter {
             total_bytes += body.length();
             bodies.push(body);
             if bodies.len() >= MAX_BODIES_SERVE || total_bytes > SOFT_RESPONSE_LIMIT {
-                break
+                break;
             }
         }
 
@@ -160,7 +160,9 @@ impl RpcNetworkAdapter {
                                 .ok();
                             maybe_witness.map(|witness| reth_ress_protocol::ExecutionWitness {
                                 state: witness.state,
-                                bytecodes: witness.codes,
+                                codes: witness.codes,
+                                keys: witness.keys,
+                                headers: witness.headers,
                             })
                         } else {
                             None
