@@ -15,7 +15,6 @@ use reth_trie_sparse::{blinded::DefaultBlindedProviderFactory, SparseStateTrie};
 use reth_zk_ress_protocol::ExecutionProof;
 use std::time::Instant;
 use tracing::*;
-use zk_ress_evm::BlockExecutor;
 use zk_ress_primitives::ExecutionWitnessPrimitives;
 use zk_ress_provider::ZkRessProvider;
 

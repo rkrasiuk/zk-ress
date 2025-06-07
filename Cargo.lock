@@ -11691,31 +11691,10 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
- "zk-ress-evm",
  "zk-ress-network",
  "zk-ress-primitives",
  "zk-ress-provider",
  "zk-ress-verifier",
-]
-
-[[package]]
-name = "zk-ress-evm"
-version = "0.1.0"
-dependencies = [
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-trie",
- "reth-evm",
- "reth-evm-ethereum",
- "reth-primitives",
- "reth-provider",
- "reth-ress-protocol",
- "reth-revm",
- "reth-trie-sparse",
- "tracing",
- "zk-ress-primitives",
- "zk-ress-provider",
 ]
 
 [[package]]
@@ -11809,7 +11788,6 @@ dependencies = [
  "reth-zk-ress-protocol",
  "thiserror 2.0.12",
  "tracing",
- "zk-ress-evm",
  "zk-ress-primitives",
  "zk-ress-provider",
 ]
