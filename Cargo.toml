@@ -142,6 +142,7 @@ reth-rpc-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/zk
 reth-rpc = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }
 
 ## node
+reth-stateless = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }
 reth-node-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }
 reth-node-core = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }
 reth-node-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-additions" }

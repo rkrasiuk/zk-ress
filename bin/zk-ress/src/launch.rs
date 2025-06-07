@@ -109,7 +109,7 @@ impl NodeLauncher {
         let (to_engine, from_auth_rpc) = mpsc::unbounded_channel();
         let consensus = EthBeaconConsensus::new(self.args.chain.clone());
         let engine_validator = EthereumEngineValidator::new(self.args.chain.clone());
-        let block_verifier = ExecutionWitnessVerifier::new(provider.clone(), consensus.clone());
+        let block_verifier = ExecutionWitnessVerifier::new(provider.clone());
         let (engine_events_tx, engine_events_rx) = mpsc::unbounded_channel();
         let consensus_engine = ConsensusEngine::new(
             provider.clone(),

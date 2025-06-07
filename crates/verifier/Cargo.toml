@@ -21,6 +21,7 @@ alloy-primitives.workspace = true
 alloy-rlp.workspace = true
 
 # reth
+reth-stateless.workspace = true
 reth-ress-protocol.workspace = true
 reth-zk-ress-protocol.workspace = true
 reth-primitives.workspace = true
@@ -31,6 +32,7 @@ reth-revm.workspace = true
 reth-trie.workspace = true
 reth-trie-sparse.workspace = true
 reth-errors.workspace = true
+reth-evm-ethereum.workspace = true
 
 # misc
 rayon.workspace = true
