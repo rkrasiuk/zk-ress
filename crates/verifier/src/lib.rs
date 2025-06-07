@@ -1,6 +1,7 @@
 //! Block verifier for `zk-ress` stateless client.
 
-use alloy_primitives::{keccak256, map::B256Map};
+use alloy_primitives::{keccak256, map::B256Map, Bytes};
+use alloy_rlp::Decodable;
 use rayon::prelude::*;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus as _, FullConsensus, HeaderValidator as _};
@@ -52,22 +53,19 @@ pub enum VerifierError {
 /// re-executing it using execution witness.
 #[derive(Debug)]
 pub struct ExecutionWitnessVerifier {
-    provider: ZkRessProvider<ExecutionWitness>,
+    provider: ZkRessProvider<Bytes>,
     consensus: EthBeaconConsensus<ChainSpec>,
 }
 
 impl ExecutionWitnessVerifier {
     /// Create new execution witness block verifier.
-    pub fn new(
-        provider: ZkRessProvider<ExecutionWitness>,
-        consensus: EthBeaconConsensus<ChainSpec>,
-    ) -> Self {
+    pub fn new(provider: ZkRessProvider<Bytes>, consensus: EthBeaconConsensus<ChainSpec>) -> Self {
         Self { provider, consensus }
     }
 }
 
 impl BlockVerifier for ExecutionWitnessVerifier {
-    type Proof = ExecutionWitness;
+    type Proof = Bytes;
 
     fn verify(
         &self,
@@ -75,6 +73,11 @@ impl BlockVerifier for ExecutionWitnessVerifier {
         parent: SealedHeader,
         proof: Self::Proof,
     ) -> Result<(), VerifierError> {
+        // Decode the RLP-encoded proof into ExecutionWitness
+        let proof = ExecutionWitness::decode(&mut &proof[..]).map_err(|error| {
+            VerifierError::Other(format!("Failed to decode execution witness: {}", error).into())
+        })?;
+
         let block_num_hash = block.num_hash();
 
         // ===================== Pre Execution Validation =====================
@@ -109,6 +112,7 @@ impl BlockVerifier for ExecutionWitnessVerifier {
 
         // ===================== Execution =====================
         let start_time = Instant::now();
+
         let block_executor =
             BlockExecutor::new(self.provider.clone(), block.parent_num_hash(), &trie, &bytecodes);
         let output = block_executor.execute(&block)?;

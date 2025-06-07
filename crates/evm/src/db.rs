@@ -5,7 +5,6 @@ use alloy_primitives::{keccak256, map::B256Map, Address, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
 use reth_provider::ProviderError;
-use reth_ress_protocol::ExecutionWitness;
 use reth_revm::{bytecode::Bytecode, state::AccountInfo, Database};
 use reth_trie_sparse::SparseStateTrie;
 use tracing::trace;
@@ -14,17 +13,17 @@ use zk_ress_provider::ZkRessProvider;
 /// EVM database implementation that uses a [`SparseStateTrie`] for account and storage data
 /// retrieval. Block hashes and bytecodes are retrieved from the [`RessProvider`].
 #[derive(Debug)]
-pub struct WitnessDatabase<'a> {
-    provider: ZkRessProvider<ExecutionWitness>,
+pub struct WitnessDatabase<'a, T> {
+    provider: ZkRessProvider<T>,
     parent: BlockNumHash,
     trie: &'a SparseStateTrie,
     bytecodes: &'a B256Map<Bytecode>,
 }
 
-impl<'a> WitnessDatabase<'a> {
+impl<'a, T> WitnessDatabase<'a, T> {
     /// Create new witness database.
     pub fn new(
-        provider: ZkRessProvider<ExecutionWitness>,
+        provider: ZkRessProvider<T>,
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,
@@ -33,7 +32,7 @@ impl<'a> WitnessDatabase<'a> {
     }
 }
 
-impl Database for WitnessDatabase<'_> {
+impl<T: Clone> Database for WitnessDatabase<'_, T> {
     /// The database error type.
     type Error = ProviderError;
 
@@ -43,7 +42,7 @@ impl Database for WitnessDatabase<'_> {
         trace!(target: "ress::evm", %address, %hashed_address, "retrieving account");
         let Some(bytes) = self.trie.get_account_value(&hashed_address) else {
             trace!(target: "ress::evm", %address, %hashed_address, "no account found");
-            return Ok(None)
+            return Ok(None);
         };
         let account = TrieAccount::decode(&mut bytes.as_slice())?;
         let account_info = AccountInfo {

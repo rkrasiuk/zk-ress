@@ -1,7 +1,7 @@
 //! EVM block executor implementation.
 
 use alloy_eips::BlockNumHash;
-use alloy_primitives::map::B256Map;
+use alloy_primitives::{map::B256Map, Bytes};
 use reth_evm::{
     execute::{BlockExecutionError, BlockExecutor as _},
     ConfigureEvm,
@@ -22,15 +22,15 @@ use crate::db::WitnessDatabase;
 /// An evm block executor that uses a reth's block executor to execute blocks by
 /// using state from [`SparseStateTrie`].
 #[allow(missing_debug_implementations)]
-pub struct BlockExecutor<'a> {
+pub struct BlockExecutor<'a, T> {
     evm_config: EthEvmConfig,
-    state: State<WitnessDatabase<'a>>,
+    state: State<WitnessDatabase<'a, T>>,
 }
 
-impl<'a> BlockExecutor<'a> {
+impl<'a, T: Clone> BlockExecutor<'a, T> {
     /// Instantiate new block executor with chain spec and witness database.
     pub fn new(
-        provider: ZkRessProvider<ExecutionWitness>,
+        provider: ZkRessProvider<T>,
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,
