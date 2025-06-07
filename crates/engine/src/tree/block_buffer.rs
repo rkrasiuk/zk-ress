@@ -257,7 +257,7 @@ mod tests {
     use reth_primitives_traits::RecoveredBlock;
     use reth_testing_utils::generators::{self, random_block, BlockParams, Rng};
     use std::collections::HashMap;
-    use zk_ress_primitives::witness::ExecutionWitness;
+    use reth_ress_protocol::ExecutionWitness;
 
     /// Create random block with specified number and parent hash.
     fn create_block<R: Rng>(

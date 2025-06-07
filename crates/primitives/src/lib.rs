@@ -8,9 +8,6 @@ use reth_ress_protocol::ExecutionWitness;
 use reth_zk_ress_protocol::ExecutionProof;
 use std::fmt;
 
-pub mod witness;
-pub mod witness_rpc;
-
 pub trait ZkRessPrimitives: 'static {
     type Proof: ExecutionProof
         + TryFromNetworkProof<Self::NetworkProof>
