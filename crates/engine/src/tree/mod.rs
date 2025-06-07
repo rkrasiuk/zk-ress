@@ -21,13 +21,12 @@ use reth_node_api::{
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthereumEngineValidator};
 use reth_primitives::{Block, Header, RecoveredBlock, SealedBlock};
 use reth_primitives_traits::SealedHeader;
-use reth_provider::ExecutionOutcome;
-use reth_trie_sparse::{blinded::DefaultBlindedProviderFactory, SparseStateTrie};
-use std::{sync::Arc, time::Instant};
+use std::time::Instant;
 use tokio::sync::mpsc;
 use tracing::*;
+use zk_ress_primitives::ZkRessPrimitives;
 use zk_ress_provider::ZkRessProvider;
-use zk_ress_verifier::{BlockVerifier, ExecutionWitnessVerifier};
+use zk_ress_verifier::BlockVerifier;
 
 mod outcome;
 pub use outcome::*;
@@ -37,9 +36,9 @@ pub use block_buffer::BlockBuffer;
 
 /// Consensus engine tree for storing and validating blocks as well as advancing the chain.
 #[derive(Debug)]
-pub struct EngineTree<T, V> {
+pub struct EngineTree<P: ZkRessPrimitives, V> {
     /// Ress provider.
-    pub(crate) provider: ZkRessProvider<T>,
+    pub(crate) provider: ZkRessProvider<P>,
     /// Consensus.
     pub(crate) consensus: EthBeaconConsensus<ChainSpec>,
     /// Engine validator.
@@ -52,7 +51,7 @@ pub struct EngineTree<T, V> {
     /// Tracks the forkchoice state updates received by the CL.
     pub(crate) forkchoice_state_tracker: ForkchoiceStateTracker,
     /// Pending block buffer.
-    pub(crate) block_buffer: BlockBuffer<Block, T>,
+    pub(crate) block_buffer: BlockBuffer<Block, P::Proof>,
     /// Invalid headers.
     pub(crate) invalid_headers: InvalidHeaderCache,
 
@@ -62,14 +61,14 @@ pub struct EngineTree<T, V> {
     metrics: EngineTreeMetrics,
 }
 
-impl<T, V> EngineTree<T, V>
+impl<P, V> EngineTree<P, V>
 where
-    T: Clone,
-    V: BlockVerifier<Proof = T>,
+    P: ZkRessPrimitives,
+    V: BlockVerifier<Proof = P::Proof>,
 {
     /// Create new engine tree.
     pub fn new(
-        provider: ZkRessProvider<T>,
+        provider: ZkRessProvider<P>,
         consensus: EthBeaconConsensus<ChainSpec>,
         engine_validator: EthereumEngineValidator,
         block_verifier: V,
@@ -476,7 +475,7 @@ where
     pub fn on_new_payload(
         &mut self,
         payload: ExecutionData,
-        maybe_proof: Option<T>,
+        maybe_proof: Option<P::Proof>,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let parent_hash = payload.payload.parent_hash();
 
@@ -565,7 +564,7 @@ where
     pub fn on_downloaded_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        proof: T,
+        proof: P::Proof,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let block_num_hash = block.num_hash();
         let lowest_buffered_ancestor = self.lowest_buffered_ancestor_or(block_num_hash.hash);
@@ -666,7 +665,7 @@ where
     pub fn insert_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        maybe_proof: Option<T>,
+        maybe_proof: Option<P::Proof>,
     ) -> Result<InsertPayloadOk, InsertBlockErrorKind> {
         let start = Instant::now();
         let block_num_hash = block.num_hash();

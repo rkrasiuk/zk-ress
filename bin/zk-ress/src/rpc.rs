@@ -12,15 +12,16 @@ use reth_rpc_api::{
     EngineEthApiServer,
 };
 use reth_rpc_eth_types::EthApiError;
+use zk_ress_primitives::ZkRessPrimitives;
 use zk_ress_provider::ZkRessProvider;
 
 /// Implementation of minimal eth RPC interface for Engine API.
 #[derive(Debug)]
-pub struct RessEthRpc<T>(ZkRessProvider<T>);
+pub struct RessEthRpc<P: ZkRessPrimitives>(ZkRessProvider<P>);
 
-impl<T> RessEthRpc<T> {
+impl<P: ZkRessPrimitives> RessEthRpc<P> {
     /// Creates new ress RPC provider.
-    pub fn new(provider: ZkRessProvider<T>) -> Self {
+    pub fn new(provider: ZkRessProvider<P>) -> Self {
         Self(provider)
     }
 }
@@ -28,9 +29,8 @@ impl<T> RessEthRpc<T> {
 /// Minimal eth RPC interface for Engine API.
 /// Ref: <https://github.com/ethereum/execution-apis/blob/main/src/engine/common.md#underlying-protocol>
 #[async_trait::async_trait]
-impl<T> EngineEthApiServer<RpcBlock<Ethereum>, RpcReceipt<Ethereum>> for RessEthRpc<T>
-where
-    T: Clone + Send + Sync + 'static,
+impl<P: ZkRessPrimitives> EngineEthApiServer<RpcBlock<Ethereum>, RpcReceipt<Ethereum>>
+    for RessEthRpc<P>
 {
     /// Handler for: `eth_syncing`
     fn syncing(&self) -> Result<SyncStatus> {

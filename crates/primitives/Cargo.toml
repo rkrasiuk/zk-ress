@@ -15,6 +15,9 @@ alloy-primitives.workspace = true
 alloy-rlp.workspace = true
 alloy-trie.workspace = true
 
+reth-zk-ress-protocol.workspace = true
+reth-ress-protocol.workspace = true
+
 # `serde` feature
 serde = { workspace = true, optional = true }
 

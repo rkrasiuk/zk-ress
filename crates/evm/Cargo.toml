@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 # ress
+zk-ress-primitives.workspace = true
 zk-ress-provider.workspace = true
 
 # alloy

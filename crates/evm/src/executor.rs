@@ -15,6 +15,7 @@ use reth_revm::{
     state::Bytecode,
 };
 use reth_trie_sparse::SparseStateTrie;
+use zk_ress_primitives::ExecutionWitnessPrimitives;
 use zk_ress_provider::ZkRessProvider;
 
 use crate::db::WitnessDatabase;
@@ -30,7 +31,7 @@ pub struct BlockExecutor<'a> {
 impl<'a> BlockExecutor<'a> {
     /// Instantiate new block executor with chain spec and witness database.
     pub fn new(
-        provider: ZkRessProvider<ExecutionWitness>,
+        provider: ZkRessProvider<ExecutionWitnessPrimitives>,
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,

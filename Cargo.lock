@@ -11452,6 +11452,7 @@ dependencies = [
  "vergen-git2",
  "zk-ress-engine",
  "zk-ress-network",
+ "zk-ress-primitives",
  "zk-ress-provider",
  "zk-ress-testing",
  "zk-ress-verifier",
@@ -11516,6 +11517,7 @@ dependencies = [
  "reth-revm",
  "reth-trie-sparse",
  "tracing",
+ "zk-ress-primitives",
  "zk-ress-provider",
 ]
 
@@ -11543,6 +11545,8 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-trie",
+ "reth-ress-protocol",
+ "reth-zk-ress-protocol",
  "serde",
 ]
 
@@ -11560,6 +11564,7 @@ dependencies = [
  "reth-storage-errors",
  "reth-zk-ress-protocol",
  "tempfile",
+ "zk-ress-primitives",
 ]
 
 [[package]]
@@ -11606,6 +11611,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tracing",
  "zk-ress-evm",
+ "zk-ress-primitives",
  "zk-ress-provider",
 ]
 

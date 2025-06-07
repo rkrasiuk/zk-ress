@@ -1,4 +1,4 @@
-use alloy_primitives::{Bytes, B256};
+use alloy_primitives::B256;
 use futures::FutureExt;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus, HeaderValidator};
@@ -14,6 +14,7 @@ use std::{
 };
 use tracing::*;
 use zk_ress_network::{PeerRequestError, RessNetworkHandle};
+use zk_ress_primitives::{TryFromNetworkProof, ZkRessPrimitives};
 
 type DownloadFut<Ok> = Pin<Box<dyn Future<Output = Result<Ok, PeerRequestError>> + Send + Sync>>;
 
@@ -34,7 +35,10 @@ pub struct FetchFullBlockFuture<T> {
     body: Option<BlockBody>,
 }
 
-impl<T: ExecutionProof> FetchFullBlockFuture<T> {
+impl<T> FetchFullBlockFuture<T>
+where
+    T: Send + Sync + 'static,
+{
     /// Create new fetch full block future.
     pub fn new(
         network: RessNetworkHandle<T>,
@@ -122,7 +126,10 @@ impl<T: ExecutionProof> FetchFullBlockFuture<T> {
     }
 }
 
-impl<T: ExecutionProof> Future for FetchFullBlockFuture<T> {
+impl<T> Future for FetchFullBlockFuture<T>
+where
+    T: Send + Sync + 'static,
+{
     type Output = SealedBlock;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -182,7 +189,10 @@ pub struct FetchHeadersRangeFuture<T> {
     pending: DownloadFut<Vec<Header>>,
 }
 
-impl<T: ExecutionProof> FetchHeadersRangeFuture<T> {
+impl<T> FetchHeadersRangeFuture<T>
+where
+    T: Send + Sync + 'static,
+{
     /// Create new fetch headers range future.
     pub fn new(
         network: RessNetworkHandle<T>,
@@ -256,7 +266,10 @@ impl<T: ExecutionProof> FetchHeadersRangeFuture<T> {
     }
 }
 
-impl<T: ExecutionProof> Future for FetchHeadersRangeFuture<T> {
+impl<T> Future for FetchHeadersRangeFuture<T>
+where
+    T: Send + Sync + 'static,
+{
     type Output = Vec<SealedHeader>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -286,7 +299,10 @@ pub struct FetchFullBlockWithAncestorsFuture<T> {
     started_at: Instant,
 }
 
-impl<T: ExecutionProof> FetchFullBlockWithAncestorsFuture<T> {
+impl<T> FetchFullBlockWithAncestorsFuture<T>
+where
+    T: Send + Sync + 'static,
+{
     /// Create new fetch full block with ancestors future.
     pub fn new(
         network: RessNetworkHandle<T>,
@@ -315,7 +331,10 @@ impl<T: ExecutionProof> FetchFullBlockWithAncestorsFuture<T> {
     }
 }
 
-impl<T: ExecutionProof> Future for FetchFullBlockWithAncestorsFuture<T> {
+impl<T> Future for FetchFullBlockWithAncestorsFuture<T>
+where
+    T: Send + Sync + 'static,
+{
     type Output = (SealedBlock, Vec<SealedHeader>);
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -508,17 +527,21 @@ impl<T: ExecutionProof> Future for FetchFullBlockRangeFuture<T> {
 
 /// A future that downloads a proof from the network.
 #[must_use = "futures do nothing unless polled"]
-pub struct FetchProofFuture<T> {
-    network: RessNetworkHandle<T>,
+pub struct FetchProofFuture<P: ZkRessPrimitives> {
+    network: RessNetworkHandle<P::NetworkProof>,
     block_hash: B256,
     retry_delay: Duration,
     started_at: Instant,
-    pending: DownloadFut<T>,
+    pending: DownloadFut<P::NetworkProof>,
 }
 
-impl<T: ExecutionProof> FetchProofFuture<T> {
+impl<P: ZkRessPrimitives> FetchProofFuture<P> {
     /// Create new fetch proof future.
-    pub fn new(network: RessNetworkHandle<T>, retry_delay: Duration, block_hash: B256) -> Self {
+    pub fn new(
+        network: RessNetworkHandle<P::NetworkProof>,
+        retry_delay: Duration,
+        block_hash: B256,
+    ) -> Self {
         let network_ = network.clone();
         Self {
             network,
@@ -539,7 +562,7 @@ impl<T: ExecutionProof> FetchProofFuture<T> {
         self.started_at.elapsed()
     }
 
-    fn proof_request(&self) -> DownloadFut<T> {
+    fn proof_request(&self) -> DownloadFut<P::NetworkProof> {
         let network = self.network.clone();
         let hash = self.block_hash;
         let delay = self.retry_delay;
@@ -550,8 +573,8 @@ impl<T: ExecutionProof> FetchProofFuture<T> {
     }
 }
 
-impl<T: ExecutionProof> Future for FetchProofFuture<T> {
-    type Output = T;
+impl<P: ZkRessPrimitives> Future for FetchProofFuture<P> {
+    type Output = P::Proof;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -559,10 +582,18 @@ impl<T: ExecutionProof> Future for FetchProofFuture<T> {
         loop {
             match ready!(this.pending.poll_unpin(cx)) {
                 Ok(proof) => {
-                    if proof.is_empty() {
-                        trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty proof");
-                    } else {
-                        return Poll::Ready(proof)
+                    match <P::Proof as TryFromNetworkProof<P::NetworkProof>>::try_from(proof) {
+                        Ok(proof) => {
+                            if proof.is_empty() {
+                                trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty proof");
+                            } else {
+                                return Poll::Ready(proof)
+                            }
+                        }
+                        Err(_error) => {
+                            // TODO: log error
+                            trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Could not convert network proof");
+                        }
                     }
                 }
                 Err(error) => {

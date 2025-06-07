@@ -15,6 +15,7 @@ use reth_zk_ress_protocol::ExecutionProof;
 use std::time::Instant;
 use tracing::*;
 use zk_ress_evm::BlockExecutor;
+use zk_ress_primitives::ExecutionWitnessPrimitives;
 use zk_ress_provider::ZkRessProvider;
 
 mod root;
@@ -52,14 +53,14 @@ pub enum VerifierError {
 /// re-executing it using execution witness.
 #[derive(Debug)]
 pub struct ExecutionWitnessVerifier {
-    provider: ZkRessProvider<ExecutionWitness>,
+    provider: ZkRessProvider<ExecutionWitnessPrimitives>,
     consensus: EthBeaconConsensus<ChainSpec>,
 }
 
 impl ExecutionWitnessVerifier {
     /// Create new execution witness block verifier.
     pub fn new(
-        provider: ZkRessProvider<ExecutionWitness>,
+        provider: ZkRessProvider<ExecutionWitnessPrimitives>,
         consensus: EthBeaconConsensus<ChainSpec>,
     ) -> Self {
         Self { provider, consensus }

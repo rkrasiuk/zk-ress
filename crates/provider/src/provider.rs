@@ -6,17 +6,18 @@ use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedHeader};
 use reth_storage_errors::provider::ProviderResult;
 use reth_zk_ress_protocol::{ExecutionProof, ZkRessProtocolProvider};
 use std::sync::Arc;
+use zk_ress_primitives::{TryIntoNetworkProof, ZkRessPrimitives};
 
 /// Provider for retrieving blockchain data.
 ///
 /// This type is a main entrypoint for fetching chain and supplementary state data.
 #[derive(Clone, Debug)]
-pub struct ZkRessProvider<T> {
+pub struct ZkRessProvider<P: ZkRessPrimitives> {
     chain_spec: Arc<ChainSpec>,
-    chain_state: ChainState<T>,
+    chain_state: ChainState<P::Proof>,
 }
 
-impl<T: Clone> ZkRessProvider<T> {
+impl<P: ZkRessPrimitives> ZkRessProvider<P> {
     /// Instantiate new storage.
     pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
         Self { chain_spec, chain_state: ChainState::default() }
@@ -49,7 +50,7 @@ impl<T: Clone> ZkRessProvider<T> {
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<T>) {
+    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<P::Proof>) {
         self.chain_state.insert_block(block, maybe_witness);
     }
 
@@ -76,8 +77,11 @@ impl<T: Clone> ZkRessProvider<T> {
     }
 }
 
-impl<T: ExecutionProof> ZkRessProtocolProvider for ZkRessProvider<T> {
-    type Proof = T;
+impl<P> ZkRessProtocolProvider for ZkRessProvider<P>
+where
+    P: ZkRessPrimitives,
+{
+    type Proof = P::NetworkProof;
 
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
         Ok(self.chain_state.header(&block_hash))
@@ -88,6 +92,7 @@ impl<T: ExecutionProof> ZkRessProtocolProvider for ZkRessProvider<T> {
     }
 
     async fn proof(&self, block_hash: B256) -> ProviderResult<Self::Proof> {
-        Ok(self.chain_state.proof(&block_hash).unwrap_or_default())
+        let proof = self.chain_state.proof(&block_hash).unwrap_or_default();
+        Ok(TryIntoNetworkProof::try_into(proof).unwrap_or_default())
     }
 }

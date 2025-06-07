@@ -33,6 +33,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 use zk_ress_engine::engine::ConsensusEngine;
 use zk_ress_network::{RessNetworkHandle, RessNetworkManager};
+use zk_ress_primitives::{ExecutionWitnessPrimitives, ZkRessPrimitives};
 use zk_ress_provider::ZkRessProvider;
 use zk_ress_verifier::ExecutionWitnessVerifier;
 
@@ -95,7 +96,7 @@ impl NodeLauncher {
         let network_secret = reth_cli_util::get_secret_key(&network_secret_path)?;
 
         let network_handle = self
-            .launch_network(
+            .launch_network::<ExecutionWitnessPrimitives, _>(
                 provider.clone(),
                 network_secret,
                 self.args.network.max_active_connections,
@@ -174,16 +175,16 @@ impl NodeLauncher {
         Ok(())
     }
 
-    async fn launch_network<P>(
+    async fn launch_network<P, Provider>(
         &self,
-        protocol_provider: P,
+        protocol_provider: Provider,
         secret_key: SecretKey,
         max_active_connections: u64,
         trusted_peers: Vec<TrustedPeer>,
-    ) -> eyre::Result<RessNetworkHandle<P::Proof>>
+    ) -> eyre::Result<RessNetworkHandle<P::NetworkProof>>
     where
-        P: ZkRessProtocolProvider + Clone + Unpin + 'static,
-        P::Proof: fmt::Debug,
+        P: ZkRessPrimitives<NetworkProof: fmt::Debug>,
+        Provider: ZkRessProtocolProvider<Proof = P::NetworkProof> + Clone + Unpin + 'static,
     {
         // Configure and instantiate the network
         let config = NetworkConfig::builder(secret_key)
@@ -229,19 +230,16 @@ impl NodeLauncher {
             ));
         }
 
-        Ok(RessNetworkHandle::new(network_handle, peer_requests_tx))
+        Ok(RessNetworkHandle::<P::NetworkProof>::new(network_handle, peer_requests_tx))
     }
 
-    async fn start_auth_server<T>(
+    async fn start_auth_server<P: ZkRessPrimitives>(
         &self,
         jwt_key: JwtSecret,
-        provider: ZkRessProvider<T>,
+        provider: ZkRessProvider<P>,
         engine_validator: EthereumEngineValidator,
         beacon_engine_handle: BeaconConsensusEngineHandle<EthEngineTypes>,
-    ) -> eyre::Result<AuthServerHandle>
-    where
-        T: Clone + Send + Sync + 'static,
-    {
+    ) -> eyre::Result<AuthServerHandle> {
         let (_, payload_builder_handle) = NoopPayloadBuilderService::<EthEngineTypes>::new();
         let client_version = ClientVersionV1 {
             code: ClientCode::RH,

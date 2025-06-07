@@ -13,6 +13,7 @@ use std::{
 };
 use tracing::*;
 use zk_ress_network::RessNetworkHandle;
+use zk_ress_primitives::ZkRessPrimitives;
 
 /// Futures for fetching and validating blockchain data.
 #[allow(missing_debug_implementations)]
@@ -21,22 +22,25 @@ use futs::*;
 
 /// Struct for downloading chain data from the network.
 #[allow(missing_debug_implementations)]
-pub struct EngineDownloader<T> {
-    network: RessNetworkHandle<T>,
+pub struct EngineDownloader<P: ZkRessPrimitives> {
+    network: RessNetworkHandle<P::NetworkProof>,
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
 
-    inflight_full_block_requests: Vec<FetchFullBlockFuture<T>>,
-    inflight_proof_requests: Vec<FetchProofFuture<T>>,
-    inflight_finalized_block_requests: Vec<FetchFullBlockWithAncestorsFuture<T>>,
-    outcomes: VecDeque<DownloadOutcome<T>>,
+    inflight_full_block_requests: Vec<FetchFullBlockFuture<P::NetworkProof>>,
+    inflight_proof_requests: Vec<FetchProofFuture<P>>,
+    inflight_finalized_block_requests: Vec<FetchFullBlockWithAncestorsFuture<P::NetworkProof>>,
+    outcomes: VecDeque<DownloadOutcome<P::Proof>>,
 
     metrics: EngineDownloaderMetrics,
 }
 
-impl<T: ExecutionProof> EngineDownloader<T> {
+impl<P: ZkRessPrimitives> EngineDownloader<P> {
     /// Create new engine downloader.
-    pub fn new(network: RessNetworkHandle<T>, consensus: EthBeaconConsensus<ChainSpec>) -> Self {
+    pub fn new(
+        network: RessNetworkHandle<P::NetworkProof>,
+        consensus: EthBeaconConsensus<ChainSpec>,
+    ) -> Self {
         Self {
             network,
             consensus,
@@ -101,7 +105,7 @@ impl<T: ExecutionProof> EngineDownloader<T> {
     }
 
     /// Poll downloader.
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome<T>> {
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome<P::Proof>> {
         if let Some(outcome) = self.outcomes.pop_front() {
             return Poll::Ready(outcome)
         }
