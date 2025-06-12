@@ -9,7 +9,6 @@ use reth_evm::{
 use reth_evm_ethereum::EthEvmConfig;
 use reth_primitives::{Block, Receipt, RecoveredBlock};
 use reth_provider::BlockExecutionOutput;
-use reth_ress_protocol::ExecutionWitness;
 use reth_revm::{
     db::{states::bundle_state::BundleRetention, State},
     state::Bytecode,

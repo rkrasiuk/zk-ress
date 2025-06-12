@@ -4,7 +4,7 @@ use alloy_primitives::{BlockHash, BlockNumber, B256};
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedHeader};
 use reth_storage_errors::provider::ProviderResult;
-use reth_zk_ress_protocol::{ExecutionProof, ZkRessProtocolProvider};
+use reth_zk_ress_protocol::ZkRessProtocolProvider;
 use std::sync::Arc;
 use zk_ress_primitives::{TryIntoNetworkProof, ZkRessPrimitives};
 

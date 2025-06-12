@@ -5,7 +5,6 @@ use alloy_primitives::{keccak256, map::B256Map, Address, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
 use reth_provider::ProviderError;
-use reth_ress_protocol::ExecutionWitness;
 use reth_revm::{bytecode::Bytecode, state::AccountInfo, Database};
 use reth_trie_sparse::SparseStateTrie;
 use tracing::trace;

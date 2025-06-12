@@ -5,7 +5,6 @@ use reth_chainspec::ChainSpec;
 use reth_metrics::Metrics;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{SealedBlock, SealedHeader};
-use reth_zk_ress_protocol::ExecutionProof;
 use std::{
     collections::VecDeque,
     task::{Context, Poll},
