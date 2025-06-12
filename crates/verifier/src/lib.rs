@@ -105,7 +105,9 @@ impl BlockVerifier for ExecutionWitnessVerifier {
         let mut bytecodes = B256Map::default();
         for bytes in proof.bytecodes {
             let bytecode = Bytecode::new_raw(bytes);
-            bytecodes.insert(bytecode.hash_slow(), bytecode);
+            let code_hash = bytecode.hash_slow();
+            bytecodes.insert(code_hash, bytecode);
+            info!(%code_hash, "Inserted for code hash");
         }
 
         // ===================== Execution =====================
