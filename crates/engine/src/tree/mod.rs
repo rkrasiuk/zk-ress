@@ -26,7 +26,7 @@ use tokio::sync::mpsc;
 use tracing::*;
 use zk_ress_primitives::ZkRessPrimitives;
 use zk_ress_provider::ZkRessProvider;
-use zk_ress_verifier::BlockVerifier;
+use zk_ress_verifier::{BlockVerifier, VerifierError};
 
 mod outcome;
 pub use outcome::*;
@@ -702,9 +702,14 @@ where
             trace!(target: "ress::engine", block = ?block_num_hash, "Block has missing proof");
             return Ok(InsertPayloadOk::Inserted(BlockStatus::NoProof))
         };
-        self.block_verifier
-            .verify(block.clone(), parent, proof.clone())
-            .map_err(|error| InsertBlockErrorKind::Other(Box::new(error)))?;
+        self.block_verifier.verify(block.clone(), parent, proof.clone()).map_err(|error| {
+            match error {
+                VerifierError::Consensus(error) => InsertBlockErrorKind::Consensus(error),
+                VerifierError::Execution(error) => InsertBlockErrorKind::Execution(error),
+                VerifierError::Provider(error) => InsertBlockErrorKind::Provider(error),
+                VerifierError::Other(error) => InsertBlockErrorKind::Other(error),
+            }
+        })?;
 
         // TODO: move
         // ExecutionWitnessVerifier::new(self.provider.clone(), self.consensus.clone())
