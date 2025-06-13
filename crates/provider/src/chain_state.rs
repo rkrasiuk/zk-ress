@@ -15,16 +15,16 @@ use std::{
 /// Stores all validated blocks as well as keeps track of the ones
 /// that form the canonical chain.
 #[derive(Clone, Debug)]
-pub struct ChainState<T>(Arc<RwLock<ChainStateInner<T>>>);
+pub struct ChainState<P>(Arc<RwLock<ChainStateInner<P>>>);
 
-impl<T> Default for ChainState<T> {
+impl<P> Default for ChainState<P> {
     fn default() -> Self {
         Self(Arc::new(RwLock::new(Default::default())))
     }
 }
 
 #[derive(Debug)]
-struct ChainStateInner<T> {
+struct ChainStateInner<P> {
     /// Canonical block hashes stored by respective block number.
     canonical_hashes_by_number: BTreeMap<BlockNumber, B256>,
     /// __All__ validated blocks by block hash that are connected to the canonical chain.
@@ -34,10 +34,10 @@ struct ChainStateInner<T> {
     /// __All__ block hashes stored by their number.
     block_hashes_by_number: BTreeMap<BlockNumber, B256HashSet>,
     /// Valid block proofs by block hash.
-    proofs: B256HashMap<T>,
+    proofs: B256HashMap<P>,
 }
 
-impl<T> Default for ChainStateInner<T> {
+impl<P> Default for ChainStateInner<P> {
     fn default() -> Self {
         Self {
             canonical_hashes_by_number: Default::default(),
@@ -48,7 +48,7 @@ impl<T> Default for ChainStateInner<T> {
     }
 }
 
-impl<T: Clone> ChainState<T> {
+impl<P: Clone> ChainState<P> {
     /// Returns `true` if block hash is canonical.
     pub fn is_hash_canonical(&self, hash: &BlockHash) -> bool {
         self.0.read().canonical_hashes_by_number.values().contains(hash)
@@ -125,12 +125,12 @@ impl<T: Clone> ChainState<T> {
     }
 
     /// Returns proof by block hash.
-    pub fn proof(&self, hash: &BlockHash) -> Option<T> {
+    pub fn proof(&self, hash: &BlockHash) -> Option<P> {
         self.0.read().proofs.get(hash).cloned()
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_proof: Option<T>) {
+    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_proof: Option<P>) {
         let mut this = self.0.write();
         let block_hash = block.hash();
         this.block_hashes_by_number.entry(block.number).or_default().insert(block_hash);

@@ -1,23 +1,23 @@
 use crate::chain_state::ChainState;
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{BlockHash, BlockNumber, B256};
+use alloy_primitives::{bytes::BytesMut, BlockHash, BlockNumber, Bytes, B256};
+use alloy_rlp::Encodable;
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedHeader};
 use reth_storage_errors::provider::ProviderResult;
 use reth_zk_ress_protocol::ZkRessProtocolProvider;
 use std::sync::Arc;
-use zk_ress_primitives::{TryIntoNetworkProof, ZkRessPrimitives};
 
 /// Provider for retrieving blockchain data.
 ///
 /// This type is a main entrypoint for fetching chain and supplementary state data.
 #[derive(Clone, Debug)]
-pub struct ZkRessProvider<P: ZkRessPrimitives> {
+pub struct ZkRessProvider<P> {
     chain_spec: Arc<ChainSpec>,
-    chain_state: ChainState<P::Proof>,
+    chain_state: ChainState<P>,
 }
 
-impl<P: ZkRessPrimitives> ZkRessProvider<P> {
+impl<P: Clone> ZkRessProvider<P> {
     /// Instantiate new storage.
     pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
         Self { chain_spec, chain_state: ChainState::default() }
@@ -50,7 +50,7 @@ impl<P: ZkRessPrimitives> ZkRessProvider<P> {
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<P::Proof>) {
+    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<P>) {
         self.chain_state.insert_block(block, maybe_witness);
     }
 
@@ -79,10 +79,8 @@ impl<P: ZkRessPrimitives> ZkRessProvider<P> {
 
 impl<P> ZkRessProtocolProvider for ZkRessProvider<P>
 where
-    P: ZkRessPrimitives,
+    P: Encodable + Clone + Send + Sync,
 {
-    type Proof = P::NetworkProof;
-
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
         Ok(self.chain_state.header(&block_hash))
     }
@@ -91,8 +89,14 @@ where
         Ok(self.chain_state.block_body(&block_hash))
     }
 
-    async fn proof(&self, block_hash: B256) -> ProviderResult<Self::Proof> {
-        let proof = self.chain_state.proof(&block_hash).unwrap_or_default();
-        Ok(TryIntoNetworkProof::try_into(proof).unwrap_or_default())
+    async fn proof(&self, block_hash: B256) -> ProviderResult<Bytes> {
+        let proof = if let Some(proof) = self.chain_state.proof(&block_hash) {
+            let mut encoded = BytesMut::new();
+            proof.encode(&mut encoded);
+            encoded.freeze().into()
+        } else {
+            Bytes::default()
+        };
+        Ok(proof)
     }
 }

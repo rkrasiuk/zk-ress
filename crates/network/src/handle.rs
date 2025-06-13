@@ -1,4 +1,4 @@
-use alloy_primitives::B256;
+use alloy_primitives::{Bytes, B256};
 use reth_network::NetworkHandle;
 use reth_primitives::{BlockBody, Header};
 use reth_ress_protocol::GetHeaders;
@@ -8,28 +8,19 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::trace;
 
 /// Ress networking handle.
-#[derive(Debug)]
-pub struct RessNetworkHandle<T> {
+#[derive(Clone, Debug)]
+pub struct RessNetworkHandle {
     /// Handle for interacting with the network.
     network_handle: NetworkHandle,
     /// Sender for forwarding peer requests.
-    peer_requests_sender: mpsc::UnboundedSender<ZkRessPeerRequest<T>>,
+    peer_requests_sender: mpsc::UnboundedSender<ZkRessPeerRequest>,
 }
 
-impl<T> Clone for RessNetworkHandle<T> {
-    fn clone(&self) -> Self {
-        Self {
-            network_handle: self.network_handle.clone(),
-            peer_requests_sender: self.peer_requests_sender.clone(),
-        }
-    }
-}
-
-impl<T> RessNetworkHandle<T> {
+impl RessNetworkHandle {
     /// Create new network handle from reth's handle and peer connection.
     pub fn new(
         network_handle: NetworkHandle,
-        peer_requests_sender: mpsc::UnboundedSender<ZkRessPeerRequest<T>>,
+        peer_requests_sender: mpsc::UnboundedSender<ZkRessPeerRequest>,
     ) -> Self {
         Self { network_handle, peer_requests_sender }
     }
@@ -39,12 +30,12 @@ impl<T> RessNetworkHandle<T> {
         &self.network_handle
     }
 
-    fn send_request(&self, request: ZkRessPeerRequest<T>) -> Result<(), PeerRequestError> {
+    fn send_request(&self, request: ZkRessPeerRequest) -> Result<(), PeerRequestError> {
         self.peer_requests_sender.send(request).map_err(|_| PeerRequestError::ConnectionClosed)
     }
 }
 
-impl<T> RessNetworkHandle<T> {
+impl RessNetworkHandle {
     /// Get block headers.
     pub async fn fetch_headers(
         &self,
@@ -72,7 +63,7 @@ impl<T> RessNetworkHandle<T> {
     }
 
     /// Get execution proof from block hash
-    pub async fn fetch_proof(&self, block_hash: B256) -> Result<T, PeerRequestError> {
+    pub async fn fetch_proof(&self, block_hash: B256) -> Result<Bytes, PeerRequestError> {
         trace!(target: "ress::net", %block_hash, "requesting proof");
         let (tx, rx) = oneshot::channel();
         self.send_request(ZkRessPeerRequest::GetProof { block_hash, tx })?;

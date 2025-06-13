@@ -1,5 +1,5 @@
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, B256};
+use alloy_primitives::{BlockHash, BlockNumber};
 use metrics::Gauge;
 use reth_metrics::Metrics;
 use reth_primitives_traits::{Block, RecoveredBlock};

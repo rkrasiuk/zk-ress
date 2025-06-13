@@ -5,6 +5,7 @@ use alloy_rpc_types_engine::{
     PayloadValidationError,
 };
 use metrics::Gauge;
+use reth_chain_state::ExecutedBlockWithTrieUpdates;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus, ConsensusError, HeaderValidator};
 use reth_engine_tree::tree::{
@@ -21,10 +22,9 @@ use reth_node_api::{
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthereumEngineValidator};
 use reth_primitives::{Block, Header, RecoveredBlock, SealedBlock};
 use reth_primitives_traits::SealedHeader;
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 use tokio::sync::mpsc;
 use tracing::*;
-use zk_ress_primitives::ZkRessPrimitives;
 use zk_ress_provider::ZkRessProvider;
 use zk_ress_verifier::{BlockVerifier, VerifierError};
 
@@ -36,7 +36,7 @@ pub use block_buffer::BlockBuffer;
 
 /// Consensus engine tree for storing and validating blocks as well as advancing the chain.
 #[derive(Debug)]
-pub struct EngineTree<P: ZkRessPrimitives, V> {
+pub struct EngineTree<P, V> {
     /// Ress provider.
     pub(crate) provider: ZkRessProvider<P>,
     /// Consensus.
@@ -51,7 +51,7 @@ pub struct EngineTree<P: ZkRessPrimitives, V> {
     /// Tracks the forkchoice state updates received by the CL.
     pub(crate) forkchoice_state_tracker: ForkchoiceStateTracker,
     /// Pending block buffer.
-    pub(crate) block_buffer: BlockBuffer<Block, P::Proof>,
+    pub(crate) block_buffer: BlockBuffer<Block, P>,
     /// Invalid headers.
     pub(crate) invalid_headers: InvalidHeaderCache,
 
@@ -63,8 +63,8 @@ pub struct EngineTree<P: ZkRessPrimitives, V> {
 
 impl<P, V> EngineTree<P, V>
 where
-    P: ZkRessPrimitives,
-    V: BlockVerifier<Proof = P::Proof>,
+    P: Clone,
+    V: BlockVerifier<Proof = P>,
 {
     /// Create new engine tree.
     pub fn new(
@@ -475,7 +475,7 @@ where
     pub fn on_new_payload(
         &mut self,
         payload: ExecutionData,
-        maybe_proof: Option<P::Proof>,
+        maybe_proof: Option<P>,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let parent_hash = payload.payload.parent_hash();
 
@@ -510,17 +510,6 @@ where
         {
             return Ok(TreeOutcome::new(status));
         }
-
-        // TODO:
-        // let recovered = match block.clone().try_recover() {
-        //     Ok(block) => block,
-        //     Err(_error) => {
-        //         return Ok(TreeOutcome::new(self.on_insert_block_error(InsertBlockError::new(
-        //             block.into_sealed_block(),
-        //             InsertBlockErrorKind::Provider(ProviderError::SenderRecoveryError),
-        //         ))?))
-        //     }
-        // };
 
         let mut maybe_tree_event = None;
         let status = match self.insert_block(block.clone(), maybe_proof) {
@@ -564,7 +553,7 @@ where
     pub fn on_downloaded_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        proof: P::Proof,
+        proof: P,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let block_num_hash = block.num_hash();
         let lowest_buffered_ancestor = self.lowest_buffered_ancestor_or(block_num_hash.hash);
@@ -665,7 +654,7 @@ where
     pub fn insert_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        maybe_proof: Option<P::Proof>,
+        maybe_proof: Option<P>,
     ) -> Result<InsertPayloadOk, InsertBlockErrorKind> {
         let start = Instant::now();
         let block_num_hash = block.num_hash();
@@ -678,57 +667,55 @@ where
         trace!(target: "ress::engine", block=?block_num_hash, "Validating block consensus");
         self.validate_block(&block)?;
 
-        let Some(parent) = self.provider.sealed_header(&block.parent_hash) else {
-            // we don't have the state required to execute this block, buffering it and find the
-            // missing parent block
-            let missing_ancestor = self
-                .block_buffer
-                .lowest_ancestor(&block.parent_hash)
-                .map(|block| block.parent_num_hash())
-                .unwrap_or_else(|| block.parent_num_hash());
-            trace!(target: "ress::engine", block=?block_num_hash, ?missing_ancestor, has_proof=maybe_proof.is_some(), "Block has missing ancestor");
-            if let Some(proof) = maybe_proof {
-                self.block_buffer.insert_proof(block.hash(), proof);
-            }
-            self.block_buffer.insert_block(block);
-            return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
-                head: self.canonical_head,
-                missing_ancestor,
-            }));
-        };
+        // TODO:
+        // let Some(parent) = self.provider.sealed_header(&block.parent_hash) else {
+        //     // we don't have the state required to execute this block, buffering it and find the
+        //     // missing parent block
+        //     let missing_ancestor = self
+        //         .block_buffer
+        //         .lowest_ancestor(&block.parent_hash)
+        //         .map(|block| block.parent_num_hash())
+        //         .unwrap_or_else(|| block.parent_num_hash());
+        //     trace!(target: "ress::engine", block=?block_num_hash, ?missing_ancestor,
+        // has_proof=maybe_proof.is_some(), "Block has missing ancestor");     if let
+        // Some(proof) = maybe_proof {         self.block_buffer.insert_proof(block.hash(),
+        // proof);     }
+        //     self.block_buffer.insert_block(block);
+        //     return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
+        //         head: self.canonical_head,
+        //         missing_ancestor,
+        //     }));
+        // };
 
         let Some(proof) = maybe_proof else {
             self.block_buffer.insert_block(block);
             trace!(target: "ress::engine", block = ?block_num_hash, "Block has missing proof");
             return Ok(InsertPayloadOk::Inserted(BlockStatus::NoProof))
         };
-        self.block_verifier.verify(block.clone(), parent, proof.clone()).map_err(|error| {
-            match error {
-                VerifierError::Consensus(error) => InsertBlockErrorKind::Consensus(error),
-                VerifierError::Execution(error) => InsertBlockErrorKind::Execution(error),
-                VerifierError::Provider(error) => InsertBlockErrorKind::Provider(error),
-                VerifierError::Other(error) => InsertBlockErrorKind::Other(error),
-            }
+        self.block_verifier.verify(block.clone(), proof.clone()).map_err(|error| match error {
+            VerifierError::Consensus(error) => InsertBlockErrorKind::Consensus(error),
+            VerifierError::Execution(error) => InsertBlockErrorKind::Execution(error),
+            VerifierError::Provider(error) => InsertBlockErrorKind::Provider(error),
+            VerifierError::Other(error) => InsertBlockErrorKind::Other(error),
         })?;
 
         // ===================== Update Node State =====================
         self.provider.insert_block(block.clone(), Some(proof));
 
-        // TODO: what to do with this?
-        // // Emit event.
-        // let executed = ExecutedBlockWithTrieUpdates::new(
-        //     Arc::new(block),
-        //     Arc::new(ExecutionOutcome::from((output, block_num_hash.number))),
-        //     Default::default(), // not needed
-        //     Default::default(), // not needed
-        // );
-        // let elapsed = start.elapsed();
-        // let event = if self.is_fork(block_num_hash.hash) {
-        //     BeaconConsensusEngineEvent::ForkBlockAdded(executed, elapsed)
-        // } else {
-        //     BeaconConsensusEngineEvent::CanonicalBlockAdded(executed, elapsed)
-        // };
-        // self.emit_event(event);
+        // Emit event.
+        let executed = ExecutedBlockWithTrieUpdates::new(
+            Arc::new(block),
+            Arc::new(Default::default()),
+            Default::default(), // not needed
+            Default::default(), // not needed
+        );
+        let elapsed = start.elapsed();
+        let event = if self.is_fork(block_num_hash.hash) {
+            BeaconConsensusEngineEvent::ForkBlockAdded(executed, elapsed)
+        } else {
+            BeaconConsensusEngineEvent::CanonicalBlockAdded(executed, elapsed)
+        };
+        self.emit_event(event);
 
         let elapsed = start.elapsed();
         debug!(target: "ress::engine", block=?block_num_hash, ?elapsed, "Finished inserting block");

@@ -5,6 +5,7 @@ use reth_chainspec::ChainSpec;
 use reth_metrics::Metrics;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{SealedBlock, SealedHeader};
+use reth_zk_ress_protocol::ExecutionProof;
 use std::{
     collections::VecDeque,
     task::{Context, Poll},
@@ -12,7 +13,6 @@ use std::{
 };
 use tracing::*;
 use zk_ress_network::RessNetworkHandle;
-use zk_ress_primitives::ZkRessPrimitives;
 
 /// Futures for fetching and validating blockchain data.
 #[allow(missing_debug_implementations)]
@@ -21,25 +21,22 @@ use futs::*;
 
 /// Struct for downloading chain data from the network.
 #[allow(missing_debug_implementations)]
-pub struct EngineDownloader<P: ZkRessPrimitives> {
-    network: RessNetworkHandle<P::NetworkProof>,
+pub struct EngineDownloader<P> {
+    network: RessNetworkHandle,
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
 
-    inflight_full_block_requests: Vec<FetchFullBlockFuture<P::NetworkProof>>,
+    inflight_full_block_requests: Vec<FetchFullBlockFuture>,
     inflight_proof_requests: Vec<FetchProofFuture<P>>,
-    inflight_finalized_block_requests: Vec<FetchFullBlockWithAncestorsFuture<P::NetworkProof>>,
-    outcomes: VecDeque<DownloadOutcome<P::Proof>>,
+    inflight_finalized_block_requests: Vec<FetchFullBlockWithAncestorsFuture>,
+    outcomes: VecDeque<DownloadOutcome<P>>,
 
     metrics: EngineDownloaderMetrics,
 }
 
-impl<P: ZkRessPrimitives> EngineDownloader<P> {
+impl<P: ExecutionProof> EngineDownloader<P> {
     /// Create new engine downloader.
-    pub fn new(
-        network: RessNetworkHandle<P::NetworkProof>,
-        consensus: EthBeaconConsensus<ChainSpec>,
-    ) -> Self {
+    pub fn new(network: RessNetworkHandle, consensus: EthBeaconConsensus<ChainSpec>) -> Self {
         Self {
             network,
             consensus,
@@ -104,7 +101,7 @@ impl<P: ZkRessPrimitives> EngineDownloader<P> {
     }
 
     /// Poll downloader.
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome<P::Proof>> {
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome<P>> {
         if let Some(outcome) = self.outcomes.pop_front() {
             return Poll::Ready(outcome)
         }

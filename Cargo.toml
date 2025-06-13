@@ -16,7 +16,6 @@ members = [
     "crates/engine",
     "crates/evm",
     "crates/network",
-    "crates/primitives",
     "crates/provider",
     "crates/verifier",
 
@@ -78,7 +77,6 @@ zk-ress-engine = { path = "crates/engine" }
 zk-ress-network = { path = "crates/network" }
 zk-ress-provider = { path = "crates/provider" }
 zk-ress-evm = { path = "crates/evm" }
-zk-ress-primitives = { path = "crates/primitives" }
 zk-ress-testing = { path = "crates/testing" }
 zk-ress-verifier = { path = "crates/verifier" }
 

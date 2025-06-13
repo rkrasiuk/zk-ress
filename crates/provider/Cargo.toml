@@ -11,10 +11,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-zk-ress-primitives.workspace = true
-
 # alloy
 alloy-primitives.workspace = true
+alloy-rlp.workspace = true
 alloy-eips.workspace = true
 
 # reth
