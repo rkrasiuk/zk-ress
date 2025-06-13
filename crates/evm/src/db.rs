@@ -5,17 +5,17 @@ use alloy_primitives::{keccak256, map::B256Map, Address, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
 use reth_provider::ProviderError;
+use reth_ress_protocol::ExecutionStateWitness;
 use reth_revm::{bytecode::Bytecode, state::AccountInfo, Database};
 use reth_trie_sparse::SparseStateTrie;
 use tracing::trace;
-use zk_ress_primitives::ExecutionWitnessPrimitives;
 use zk_ress_provider::ZkRessProvider;
 
 /// EVM database implementation that uses a [`SparseStateTrie`] for account and storage data
 /// retrieval. Block hashes and bytecodes are retrieved from the [`RessProvider`].
 #[derive(Debug)]
 pub struct WitnessDatabase<'a> {
-    provider: ZkRessProvider<ExecutionWitnessPrimitives>,
+    provider: ZkRessProvider<ExecutionStateWitness>,
     parent: BlockNumHash,
     trie: &'a SparseStateTrie,
     bytecodes: &'a B256Map<Bytecode>,
@@ -24,7 +24,7 @@ pub struct WitnessDatabase<'a> {
 impl<'a> WitnessDatabase<'a> {
     /// Create new witness database.
     pub fn new(
-        provider: ZkRessProvider<ExecutionWitnessPrimitives>,
+        provider: ZkRessProvider<ExecutionStateWitness>,
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,

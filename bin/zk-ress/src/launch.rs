@@ -27,13 +27,12 @@ use reth_tasks::TokioTaskExecutor;
 use reth_transaction_pool::noop::NoopTransactionPool;
 use reth_zk_ress_protocol::{ProtocolState, ZkRessProtocolHandler, ZkRessProtocolProvider};
 use reth_zk_ress_provider::ZkRessProver;
-use std::{convert::Infallible, fmt, net::SocketAddr, sync::Arc};
+use std::{convert::Infallible, net::SocketAddr, sync::Arc};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 use zk_ress_engine::engine::ConsensusEngine;
 use zk_ress_network::{RessNetworkHandle, RessNetworkManager};
-use zk_ress_primitives::{ExecutionWitnessPrimitives, ZkRessPrimitives};
 use zk_ress_provider::ZkRessProvider;
 use zk_ress_verifier::ExecutionWitnessVerifier;
 
@@ -96,7 +95,7 @@ impl NodeLauncher {
         let network_secret = reth_cli_util::get_secret_key(&network_secret_path)?;
 
         let network_handle = self
-            .launch_network::<ExecutionWitnessPrimitives, _>(
+            .launch_network(
                 provider.clone(),
                 network_secret,
                 self.args.network.max_active_connections,
@@ -175,16 +174,15 @@ impl NodeLauncher {
         Ok(())
     }
 
-    async fn launch_network<P, Provider>(
+    async fn launch_network<Provider>(
         &self,
         protocol_provider: Provider,
         secret_key: SecretKey,
         max_active_connections: u64,
         trusted_peers: Vec<TrustedPeer>,
-    ) -> eyre::Result<RessNetworkHandle<P::NetworkProof>>
+    ) -> eyre::Result<RessNetworkHandle>
     where
-        P: ZkRessPrimitives<NetworkProof: fmt::Debug>,
-        Provider: ZkRessProtocolProvider<Proof = P::NetworkProof> + Clone + Unpin + 'static,
+        Provider: ZkRessProtocolProvider + Clone + Unpin + 'static,
     {
         // Configure and instantiate the network
         let config = NetworkConfig::builder(secret_key)
@@ -230,16 +228,19 @@ impl NodeLauncher {
             ));
         }
 
-        Ok(RessNetworkHandle::<P::NetworkProof>::new(network_handle, peer_requests_tx))
+        Ok(RessNetworkHandle::new(network_handle, peer_requests_tx))
     }
 
-    async fn start_auth_server<P: ZkRessPrimitives>(
+    async fn start_auth_server<P>(
         &self,
         jwt_key: JwtSecret,
         provider: ZkRessProvider<P>,
         engine_validator: EthereumEngineValidator,
         beacon_engine_handle: BeaconConsensusEngineHandle<EthEngineTypes>,
-    ) -> eyre::Result<AuthServerHandle> {
+    ) -> eyre::Result<AuthServerHandle>
+    where
+        P: Clone + Send + Sync + 'static,
+    {
         let (_, payload_builder_handle) = NoopPayloadBuilderService::<EthEngineTypes>::new();
         let client_version = ClientVersionV1 {
             code: ClientCode::RH,

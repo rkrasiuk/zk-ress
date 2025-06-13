@@ -3,7 +3,6 @@ use crate::{
     tree::{DownloadRequest, EngineTree, TreeAction, TreeEvent},
 };
 use alloy_primitives::{map::B256HashSet, B256};
-use alloy_rlp::Encodable as _;
 use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
 use metrics::Histogram;
@@ -13,6 +12,7 @@ use reth_errors::ProviderError;
 use reth_metrics::Metrics;
 use reth_node_api::{BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError};
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes, EthereumEngineValidator};
+use reth_zk_ress_protocol::ExecutionProof;
 use std::{
     future::Future,
     pin::Pin,
@@ -26,7 +26,6 @@ use tokio::{
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 use zk_ress_network::RessNetworkHandle;
-use zk_ress_primitives::ZkRessPrimitives;
 use zk_ress_provider::ZkRessProvider;
 use zk_ress_verifier::BlockVerifier;
 
@@ -40,7 +39,7 @@ pub(crate) struct ConsensusEngineMetrics {
 
 /// Ress consensus engine.
 #[allow(missing_debug_implementations)]
-pub struct ConsensusEngine<P: ZkRessPrimitives, V> {
+pub struct ConsensusEngine<P, V> {
     tree: EngineTree<P, V>,
     downloader: EngineDownloader<P>,
     from_beacon_engine: UnboundedReceiverStream<BeaconEngineMessage<EthEngineTypes>>,
@@ -51,8 +50,8 @@ pub struct ConsensusEngine<P: ZkRessPrimitives, V> {
 
 impl<P, V> ConsensusEngine<P, V>
 where
-    P: ZkRessPrimitives,
-    V: BlockVerifier<Proof = P::Proof>,
+    P: ExecutionProof,
+    V: BlockVerifier<Proof = P>,
 {
     /// Initialize consensus engine.
     pub fn new(
@@ -60,7 +59,7 @@ where
         consensus: EthBeaconConsensus<ChainSpec>,
         engine_validator: EthereumEngineValidator,
         block_verifier: V,
-        network: RessNetworkHandle<P::NetworkProof>,
+        network: RessNetworkHandle,
         from_beacon_engine: mpsc::UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
         engine_events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
     ) -> Self {
@@ -108,7 +107,7 @@ where
 
     fn on_download_outcome(
         &mut self,
-        outcome: DownloadOutcome<P::Proof>,
+        outcome: DownloadOutcome<P>,
     ) -> Result<(), InsertBlockFatalError> {
         let elapsed = outcome.elapsed;
         let mut unlocked_block_hashes = B256HashSet::default();
@@ -252,7 +251,7 @@ where
     }
 
     /// Record proof metrics
-    fn record_proof_metrics(&self, proof: &P::Proof) {
+    fn record_proof_metrics(&self, proof: &P) {
         let proof_size_bytes = proof.length();
         self.metrics.proof_size_bytes.record(proof_size_bytes as f64);
     }
@@ -260,8 +259,8 @@ where
 
 impl<P, V> Future for ConsensusEngine<P, V>
 where
-    P: ZkRessPrimitives,
-    V: BlockVerifier<Proof = P::Proof>,
+    P: ExecutionProof,
+    V: BlockVerifier<Proof = P>,
 {
     type Output = Result<(), InsertBlockFatalError>;
 

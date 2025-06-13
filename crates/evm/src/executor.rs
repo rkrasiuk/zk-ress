@@ -9,12 +9,12 @@ use reth_evm::{
 use reth_evm_ethereum::EthEvmConfig;
 use reth_primitives::{Block, Receipt, RecoveredBlock};
 use reth_provider::BlockExecutionOutput;
+use reth_ress_protocol::ExecutionStateWitness;
 use reth_revm::{
     db::{states::bundle_state::BundleRetention, State},
     state::Bytecode,
 };
 use reth_trie_sparse::SparseStateTrie;
-use zk_ress_primitives::ExecutionWitnessPrimitives;
 use zk_ress_provider::ZkRessProvider;
 
 use crate::db::WitnessDatabase;
@@ -30,7 +30,7 @@ pub struct BlockExecutor<'a> {
 impl<'a> BlockExecutor<'a> {
     /// Instantiate new block executor with chain spec and witness database.
     pub fn new(
-        provider: ZkRessProvider<ExecutionWitnessPrimitives>,
+        provider: ZkRessProvider<ExecutionStateWitness>,
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,

@@ -1,6 +1,6 @@
 use alloy_primitives::B256;
 use alloy_provider::{Provider, RootProvider, WsConnect};
-use alloy_rlp::Encodable;
+use alloy_rlp::{BytesMut, Encodable};
 use alloy_rpc_client::ClientBuilder;
 use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_eth::{Block, BlockId, BlockNumberOrTag, BlockTransactionsKind};
@@ -117,12 +117,7 @@ impl RpcNetworkAdapter {
     }
 
     /// Run RPC network adapter to respond to peer requests.
-    pub async fn run(
-        self,
-        mut request_stream: UnboundedReceiverStream<
-            ZkRessPeerRequest<reth_ress_protocol::ExecutionWitness>,
-        >,
-    ) {
+    pub async fn run(self, mut request_stream: UnboundedReceiverStream<ZkRessPeerRequest>) {
         while let Some(request) = request_stream.next().await {
             match request {
                 ZkRessPeerRequest::GetHeaders { request, tx } => {
@@ -158,9 +153,14 @@ impl RpcNetworkAdapter {
                                     debug!(target: "ress::rpc_adapter", %block_hash, %error, "Failed to request witness from provider");
                                 })
                                 .ok();
-                            maybe_witness.map(|witness| reth_ress_protocol::ExecutionWitness {
-                                state: witness.state,
-                                bytecodes: witness.codes,
+                            maybe_witness.map(|witness| {
+                                let mut encoded = BytesMut::default();
+                                reth_ress_protocol::ExecutionStateWitness {
+                                    state: witness.state,
+                                    bytecodes: witness.codes,
+                                }
+                                .encode(&mut encoded);
+                                encoded.freeze().into()
                             })
                         } else {
                             None

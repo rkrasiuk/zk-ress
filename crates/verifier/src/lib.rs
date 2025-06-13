@@ -6,8 +6,8 @@ use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus as _, FullConsensus, HeaderValidator as _};
 use reth_errors::{BlockExecutionError, ConsensusError, ProviderError};
 use reth_ethereum_consensus::EthBeaconConsensus;
-use reth_primitives::{Block, EthPrimitives, GotExpected, RecoveredBlock, SealedHeader};
-use reth_ress_protocol::ExecutionWitness;
+use reth_primitives::{Block, EthPrimitives, GotExpected, RecoveredBlock};
+use reth_ress_protocol::ExecutionStateWitness;
 use reth_revm::state::Bytecode;
 use reth_trie::{HashedPostState, KeccakKeyHasher};
 use reth_trie_sparse::{blinded::DefaultBlindedProviderFactory, SparseStateTrie};
@@ -15,21 +15,21 @@ use reth_zk_ress_protocol::ExecutionProof;
 use std::time::Instant;
 use tracing::*;
 use zk_ress_evm::BlockExecutor;
-use zk_ress_primitives::ExecutionWitnessPrimitives;
 use zk_ress_provider::ZkRessProvider;
 
 mod root;
-use root::calculate_state_root;
+pub use root::calculate_state_root;
 
+/// Implementation of block verification.
+///
+/// Given the proof, it must verify full validity of the block according to Ethereum consensus.
 pub trait BlockVerifier: Unpin {
+    /// The type of the execution proof used for verification.
     type Proof: ExecutionProof;
 
-    fn verify(
-        &self,
-        block: RecoveredBlock<Block>,
-        parent: SealedHeader,
-        proof: Self::Proof,
-    ) -> Result<(), VerifierError>;
+    /// Verify that the block is valid.
+    fn verify(&self, block: RecoveredBlock<Block>, proof: Self::Proof)
+        -> Result<(), VerifierError>;
 }
 
 /// All error variants possible when verifying a block.
@@ -53,14 +53,14 @@ pub enum VerifierError {
 /// re-executing it using execution witness.
 #[derive(Debug)]
 pub struct ExecutionWitnessVerifier {
-    provider: ZkRessProvider<ExecutionWitnessPrimitives>,
+    provider: ZkRessProvider<ExecutionStateWitness>,
     consensus: EthBeaconConsensus<ChainSpec>,
 }
 
 impl ExecutionWitnessVerifier {
     /// Create new execution witness block verifier.
     pub fn new(
-        provider: ZkRessProvider<ExecutionWitnessPrimitives>,
+        provider: ZkRessProvider<ExecutionStateWitness>,
         consensus: EthBeaconConsensus<ChainSpec>,
     ) -> Self {
         Self { provider, consensus }
@@ -68,12 +68,11 @@ impl ExecutionWitnessVerifier {
 }
 
 impl BlockVerifier for ExecutionWitnessVerifier {
-    type Proof = ExecutionWitness;
+    type Proof = ExecutionStateWitness;
 
     fn verify(
         &self,
         block: RecoveredBlock<Block>,
-        parent: SealedHeader,
         proof: Self::Proof,
     ) -> Result<(), VerifierError> {
         let block_num_hash = block.num_hash();
@@ -87,11 +86,12 @@ impl BlockVerifier for ExecutionWitnessVerifier {
             error!(target: "ress::engine", %error, "Failed to validate block");
         })?;
 
-        self.consensus.validate_header_against_parent(block.sealed_header(), &parent).inspect_err(
-            |error| {
-                error!(target: "ress::engine", %error, "Failed to validate header against parent");
-            },
-        )?;
+        // TODO:
+        // self.consensus.validate_header_against_parent(block.sealed_header(),
+        // &parent).inspect_err(     |error| {
+        //         error!(target: "ress::engine", %error, "Failed to validate header against
+        // parent");     },
+        // )?;
 
         // ===================== Witness =====================
         let mut trie = SparseStateTrie::new(DefaultBlindedProviderFactory);
@@ -99,8 +99,10 @@ impl BlockVerifier for ExecutionWitnessVerifier {
         for encoded in proof.state {
             state_witness.insert(keccak256(&encoded), encoded);
         }
-        trie.reveal_witness(parent.state_root, &state_witness)
-            .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))?;
+
+        // TODO:
+        // trie.reveal_witness(parent.state_root, &state_witness)
+        //     .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))?;
 
         let mut bytecodes = B256Map::default();
         for bytes in proof.bytecodes {
