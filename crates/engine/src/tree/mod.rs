@@ -667,36 +667,37 @@ where
         trace!(target: "ress::engine", block=?block_num_hash, "Validating block consensus");
         self.validate_block(&block)?;
 
-        // TODO:
-        // let Some(parent) = self.provider.sealed_header(&block.parent_hash) else {
-        //     // we don't have the state required to execute this block, buffering it and find the
-        //     // missing parent block
-        //     let missing_ancestor = self
-        //         .block_buffer
-        //         .lowest_ancestor(&block.parent_hash)
-        //         .map(|block| block.parent_num_hash())
-        //         .unwrap_or_else(|| block.parent_num_hash());
-        //     trace!(target: "ress::engine", block=?block_num_hash, ?missing_ancestor,
-        // has_proof=maybe_proof.is_some(), "Block has missing ancestor");     if let
-        // Some(proof) = maybe_proof {         self.block_buffer.insert_proof(block.hash(),
-        // proof);     }
-        //     self.block_buffer.insert_block(block);
-        //     return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
-        //         head: self.canonical_head,
-        //         missing_ancestor,
-        //     }));
-        // };
+        let Some(parent) = self.provider.sealed_header(&block.parent_hash) else {
+            // we don't have the state required to execute this block, buffering it and find the
+            // missing parent block
+            let missing_ancestor = self
+                .block_buffer
+                .lowest_ancestor(&block.parent_hash)
+                .map(|block| block.parent_num_hash())
+                .unwrap_or_else(|| block.parent_num_hash());
+            trace!(target: "ress::engine", block=?block_num_hash, ?missing_ancestor, has_proof=maybe_proof.is_some(), "Block has missing ancestor");
+            if let Some(proof) = maybe_proof {
+                self.block_buffer.insert_proof(block.hash(), proof);
+            }
+            self.block_buffer.insert_block(block);
+            return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
+                head: self.canonical_head,
+                missing_ancestor,
+            }));
+        };
 
         let Some(proof) = maybe_proof else {
             self.block_buffer.insert_block(block);
             trace!(target: "ress::engine", block = ?block_num_hash, "Block has missing proof");
             return Ok(InsertPayloadOk::Inserted(BlockStatus::NoProof))
         };
-        self.block_verifier.verify(block.clone(), proof.clone()).map_err(|error| match error {
-            VerifierError::Consensus(error) => InsertBlockErrorKind::Consensus(error),
-            VerifierError::Execution(error) => InsertBlockErrorKind::Execution(error),
-            VerifierError::Provider(error) => InsertBlockErrorKind::Provider(error),
-            VerifierError::Other(error) => InsertBlockErrorKind::Other(error),
+        self.block_verifier.verify(block.clone(), parent, proof.clone()).map_err(|error| {
+            match error {
+                VerifierError::Consensus(error) => InsertBlockErrorKind::Consensus(error),
+                VerifierError::Execution(error) => InsertBlockErrorKind::Execution(error),
+                VerifierError::Provider(error) => InsertBlockErrorKind::Provider(error),
+                VerifierError::Other(error) => InsertBlockErrorKind::Other(error),
+            }
         })?;
 
         // ===================== Update Node State =====================

@@ -6,7 +6,7 @@ use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus as _, FullConsensus, HeaderValidator as _};
 use reth_errors::{BlockExecutionError, ConsensusError, ProviderError};
 use reth_ethereum_consensus::EthBeaconConsensus;
-use reth_primitives::{Block, EthPrimitives, GotExpected, RecoveredBlock};
+use reth_primitives::{Block, EthPrimitives, GotExpected, RecoveredBlock, SealedHeader};
 use reth_ress_protocol::ExecutionStateWitness;
 use reth_revm::state::Bytecode;
 use reth_trie::{HashedPostState, KeccakKeyHasher};
@@ -28,8 +28,12 @@ pub trait BlockVerifier: Unpin {
     type Proof: ExecutionProof;
 
     /// Verify that the block is valid.
-    fn verify(&self, block: RecoveredBlock<Block>, proof: Self::Proof)
-        -> Result<(), VerifierError>;
+    fn verify(
+        &self,
+        block: RecoveredBlock<Block>,
+        parent: SealedHeader,
+        proof: Self::Proof,
+    ) -> Result<(), VerifierError>;
 }
 
 /// All error variants possible when verifying a block.
@@ -73,6 +77,7 @@ impl BlockVerifier for ExecutionWitnessVerifier {
     fn verify(
         &self,
         block: RecoveredBlock<Block>,
+        parent: SealedHeader,
         proof: Self::Proof,
     ) -> Result<(), VerifierError> {
         let block_num_hash = block.num_hash();
@@ -86,12 +91,11 @@ impl BlockVerifier for ExecutionWitnessVerifier {
             error!(target: "ress::engine", %error, "Failed to validate block");
         })?;
 
-        // TODO:
-        // self.consensus.validate_header_against_parent(block.sealed_header(),
-        // &parent).inspect_err(     |error| {
-        //         error!(target: "ress::engine", %error, "Failed to validate header against
-        // parent");     },
-        // )?;
+        self.consensus.validate_header_against_parent(block.sealed_header(), &parent).inspect_err(
+            |error| {
+                error!(target: "ress::engine", %error, "Failed to validate header against parent");
+            },
+        )?;
 
         // ===================== Witness =====================
         let mut trie = SparseStateTrie::new(DefaultBlindedProviderFactory);
