@@ -21,7 +21,7 @@ pub trait ZkRessPrimitives: 'static {
 
 pub trait TryFromNetworkProof<T>: Sized {
     /// The type returned in the event of a conversion error.
-    type Error;
+    type Error: fmt::Debug;
 
     /// Performs the conversion.
     fn try_from(value: T) -> Result<Self, Self::Error>;
@@ -29,7 +29,7 @@ pub trait TryFromNetworkProof<T>: Sized {
 
 pub trait TryIntoNetworkProof<T> {
     /// The type returned in the event of a conversion error.
-    type Error;
+    type Error: fmt::Debug;
 
     /// Performs the conversion.
     fn try_into(self) -> Result<T, Self::Error>;

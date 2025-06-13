@@ -590,9 +590,9 @@ impl<P: ZkRessPrimitives> Future for FetchProofFuture<P> {
                                 return Poll::Ready(proof)
                             }
                         }
-                        Err(_error) => {
+                        Err(error) => {
                             // TODO: log error
-                            trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Could not convert network proof");
+                            trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, ?error, "Could not convert network proof");
                         }
                     }
                 }

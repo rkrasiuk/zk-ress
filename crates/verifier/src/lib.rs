@@ -107,7 +107,6 @@ impl BlockVerifier for ExecutionWitnessVerifier {
             let bytecode = Bytecode::new_raw(bytes);
             let code_hash = bytecode.hash_slow();
             bytecodes.insert(code_hash, bytecode);
-            info!(%code_hash, "Inserted for code hash");
         }
 
         // ===================== Execution =====================
