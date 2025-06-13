@@ -711,63 +711,6 @@ where
             }
         })?;
 
-        // TODO: move
-        // ExecutionWitnessVerifier::new(self.provider.clone(), self.consensus.clone())
-        //     .verify(block, parent, proof)
-        //     .map_err(|error| InsertBlockErrorKind::Other(Box::new(error)))?;
-
-        // TODO: remove
-        // if let Err(error) =
-        //     self.consensus.validate_header_against_parent(block.sealed_header(), &parent)
-        // {
-        //     error!(target: "ress::engine", %error, "Failed to validate header against parent");
-        //     return Err(error.into());
-        // }
-
-        // // ===================== Witness =====================
-        // let Some(execution_witness) = maybe_witness else {
-        //     self.block_buffer.insert_block(block);
-        //     trace!(target: "ress::engine", block = ?block_num_hash, "Block has missing witness");
-        //     return Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness))
-        // };
-        // let mut trie = SparseStateTrie::new(DefaultBlindedProviderFactory);
-        // let mut state_witness = B256Map::default();
-        // for encoded in execution_witness.state_witness() {
-        //     state_witness.insert(keccak256(encoded), encoded.clone());
-        // }
-        // trie.reveal_witness(parent.state_root, &state_witness).map_err(|error| {
-        //     InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
-        // })?;
-
-        // // ===================== Execution =====================
-        // let start_time = std::time::Instant::now();
-        // let block_executor =
-        //     BlockExecutor::new(self.provider.clone(), block.parent_num_hash(), &trie);
-        // let output = block_executor.execute(&block).map_err(InsertBlockErrorKind::Execution)?;
-        // debug!(target: "ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(),
-        // "Executed new payload");
-
-        // // ===================== Post Execution Validation =====================
-        // <EthBeaconConsensus<ChainSpec> as
-        // FullConsensus<EthPrimitives>>::validate_block_post_execution(
-        //     &self.consensus,
-        //     &block,
-        //     &output.result
-        // )?;
-
-        // // ===================== State Root =====================
-        // let hashed_state =
-        //     HashedPostState::from_bundle_state::<KeccakKeyHasher>(output.state.state.par_iter());
-        // let state_root = calculate_state_root(&mut trie, hashed_state).map_err(|error| {
-        //     InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
-        // })?;
-        // if state_root != block.state_root {
-        //     return Err(ConsensusError::BodyStateRootDiff(
-        //         GotExpected { got: state_root, expected: block.state_root }.into(),
-        //     )
-        //     .into());
-        // }
-
         // ===================== Update Node State =====================
         self.provider.insert_block(block.clone(), Some(proof));
 
