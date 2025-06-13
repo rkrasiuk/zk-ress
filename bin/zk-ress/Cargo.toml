@@ -1,5 +1,5 @@
 [package]
-name = "ress"
+name = "zk-ress"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,10 +12,12 @@ workspace = true
 
 [dependencies]
 # ress
-ress-provider.workspace = true
-ress-network.workspace = true
-ress-engine.workspace = true
-ress-testing.workspace = true
+zk-ress-primitives.workspace = true
+zk-ress-provider.workspace = true
+zk-ress-network.workspace = true
+zk-ress-engine.workspace = true
+zk-ress-testing.workspace = true
+zk-ress-verifier.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
@@ -27,6 +29,8 @@ alloy-serde.workspace = true
 
 # reth
 reth-ress-protocol.workspace = true
+reth-zk-ress-protocol.workspace = true
+reth-zk-ress-provider.workspace = true
 reth-ethereum-primitives.workspace = true
 reth-chainspec.workspace = true
 reth-network.workspace = true
@@ -66,9 +70,9 @@ metrics.workspace = true
 dirs-next = "2.0"
 shellexpand = "3.0"
 http = "1.0"
-tower = "0.4"
-jsonrpsee = "0.24"
-jsonrpsee-server = "0.24"
+tower = "0.5"
+jsonrpsee = "0.25.1"
+jsonrpsee-server = "0.25.1"
 async-trait = "0.1.68"
 
 [build-dependencies]

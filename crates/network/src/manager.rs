@@ -1,8 +1,9 @@
 use futures::StreamExt;
 use reth_network_api::PeerId;
-use reth_ress_protocol::{ProtocolEvent, RessPeerRequest};
+use reth_zk_ress_protocol::{ProtocolEvent, ZkRessPeerRequest};
 use std::{
     collections::VecDeque,
+    fmt,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -13,25 +14,25 @@ use tracing::{debug, trace};
 
 /// Peer connection handle.
 #[derive(Debug)]
-struct ConnectionHandle {
+struct ConnectionHandle<T> {
     peer_id: PeerId,
-    to_connection: mpsc::UnboundedSender<RessPeerRequest>,
+    to_connection: mpsc::UnboundedSender<ZkRessPeerRequest<T>>,
 }
 
 /// Network manager for forwarding requests to peer connections.
 #[derive(Debug)]
-pub struct RessNetworkManager {
-    protocol_events: UnboundedReceiverStream<ProtocolEvent>,
-    peer_requests: UnboundedReceiverStream<RessPeerRequest>,
-    connections: VecDeque<ConnectionHandle>,
-    pending_requests: VecDeque<RessPeerRequest>,
+pub struct RessNetworkManager<T> {
+    protocol_events: UnboundedReceiverStream<ProtocolEvent<T>>,
+    peer_requests: UnboundedReceiverStream<ZkRessPeerRequest<T>>,
+    connections: VecDeque<ConnectionHandle<T>>,
+    pending_requests: VecDeque<ZkRessPeerRequest<T>>,
 }
 
-impl RessNetworkManager {
+impl<T: fmt::Debug> RessNetworkManager<T> {
     /// Create new network manager.
     pub fn new(
-        protocol_events: UnboundedReceiverStream<ProtocolEvent>,
-        peer_requests: UnboundedReceiverStream<RessPeerRequest>,
+        protocol_events: UnboundedReceiverStream<ProtocolEvent<T>>,
+        peer_requests: UnboundedReceiverStream<ZkRessPeerRequest<T>>,
     ) -> Self {
         Self {
             protocol_events,
@@ -41,7 +42,7 @@ impl RessNetworkManager {
         }
     }
 
-    fn on_peer_request(&mut self, mut request: RessPeerRequest) {
+    fn on_peer_request(&mut self, mut request: ZkRessPeerRequest<T>) {
         // Rotate connections for peer requests
         while let Some(connection) = self.connections.pop_front() {
             trace!(target: "ress::net", peer_id = %connection.peer_id, ?request, "Sending request to peer");
@@ -61,7 +62,7 @@ impl RessNetworkManager {
     }
 }
 
-impl Future for RessNetworkManager {
+impl<T: fmt::Debug> Future for RessNetworkManager<T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

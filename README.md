@@ -57,18 +57,15 @@ cast rpc admin_nodeInfo -r http://localhost:9545 | jq .enode
 ## How it works
 
 Live sync works like any other stateful node: Ress receives a new payload from the consensus client
-and fetches necessary state data (witness, block, bytecodes) from a stateful reth client
+and fetches necessary state data (execution proof, header, block body) from a stateful reth client
 via [RLPx subprotocol dedicated to Ress](https://github.com/paradigmxyz/reth/tree/main/crates/ress/protocol).
 It verifies payload and calculates the new state root all in memory.
 
 ```mermaid
 sequenceDiagram
     CL->>Ress: NewPayload
-    Ress->>Reth: GetWitness
-    Reth-->>Ress: Witness
-    Ress->>Reth: GetBytecode
-    Note over Ress,Reth: (only missing)
-    Reth-->>Ress: Bytecode
+    Ress->>Reth: GetProof
+    Reth-->>Ress: Proof
     Ress->>Ress: Validate Payload
     Ress-->>CL: PayloadStatus
 ```

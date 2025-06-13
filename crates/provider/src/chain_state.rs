@@ -1,7 +1,7 @@
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{
     map::{B256HashMap, B256HashSet},
-    BlockHash, BlockNumber, Bytes, B256,
+    BlockHash, BlockNumber, B256,
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
@@ -14,11 +14,17 @@ use std::{
 /// In-memory blockchain tree state.
 /// Stores all validated blocks as well as keeps track of the ones
 /// that form the canonical chain.
-#[derive(Clone, Default, Debug)]
-pub struct ChainState(Arc<RwLock<ChainStateInner>>);
+#[derive(Clone, Debug)]
+pub struct ChainState<T>(Arc<RwLock<ChainStateInner<T>>>);
 
-#[derive(Default, Debug)]
-struct ChainStateInner {
+impl<T> Default for ChainState<T> {
+    fn default() -> Self {
+        Self(Arc::new(RwLock::new(Default::default())))
+    }
+}
+
+#[derive(Debug)]
+struct ChainStateInner<T> {
     /// Canonical block hashes stored by respective block number.
     canonical_hashes_by_number: BTreeMap<BlockNumber, B256>,
     /// __All__ validated blocks by block hash that are connected to the canonical chain.
@@ -27,11 +33,22 @@ struct ChainStateInner {
     blocks_by_hash: B256HashMap<RecoveredBlock<Block>>,
     /// __All__ block hashes stored by their number.
     block_hashes_by_number: BTreeMap<BlockNumber, B256HashSet>,
-    /// Valid block witnesses by block hash.
-    witnesses: B256HashMap<Vec<Bytes>>,
+    /// Valid block proofs by block hash.
+    proofs: B256HashMap<T>,
 }
 
-impl ChainState {
+impl<T> Default for ChainStateInner<T> {
+    fn default() -> Self {
+        Self {
+            canonical_hashes_by_number: Default::default(),
+            blocks_by_hash: Default::default(),
+            block_hashes_by_number: Default::default(),
+            proofs: Default::default(),
+        }
+    }
+}
+
+impl<T: Clone> ChainState<T> {
     /// Returns `true` if block hash is canonical.
     pub fn is_hash_canonical(&self, hash: &BlockHash) -> bool {
         self.0.read().canonical_hashes_by_number.values().contains(hash)
@@ -107,19 +124,19 @@ impl ChainState {
         self.map_recovered_block(hash, Clone::clone)
     }
 
-    /// Returns witness by block hash.
-    pub fn witness(&self, hash: &BlockHash) -> Option<Vec<Bytes>> {
-        self.0.read().witnesses.get(hash).cloned()
+    /// Returns proof by block hash.
+    pub fn proof(&self, hash: &BlockHash) -> Option<T> {
+        self.0.read().proofs.get(hash).cloned()
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<Vec<Bytes>>) {
+    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_proof: Option<T>) {
         let mut this = self.0.write();
         let block_hash = block.hash();
         this.block_hashes_by_number.entry(block.number).or_default().insert(block_hash);
         this.blocks_by_hash.insert(block_hash, block);
-        if let Some(witness) = maybe_witness {
-            this.witnesses.insert(block_hash, witness);
+        if let Some(proof) = maybe_proof {
+            this.proofs.insert(block_hash, proof);
         }
     }
 
@@ -139,7 +156,7 @@ impl ChainState {
                 let (_, block_hashes) = this.block_hashes_by_number.pop_first().unwrap();
                 for block_hash in block_hashes {
                     this.blocks_by_hash.remove(&block_hash);
-                    this.witnesses.remove(&block_hash);
+                    this.proofs.remove(&block_hash);
                 }
             }
 

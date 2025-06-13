@@ -1,9 +1,9 @@
 //! Main ress executable.
 
 use clap::Parser;
-use ress::{cli::RessArgs, launch::NodeLauncher};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
+use zk_ress::{cli::ZkRessArgs, launch::NodeLauncher};
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -19,6 +19,6 @@ async fn main() -> eyre::Result<()> {
         )
         .init();
 
-    NodeLauncher::new(RessArgs::parse()).launch().await?;
+    NodeLauncher::new(ZkRessArgs::parse()).launch().await?;
     Ok(())
 }

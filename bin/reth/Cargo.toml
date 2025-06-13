@@ -15,7 +15,10 @@ workspace = true
 reth.workspace = true
 reth-node-builder.workspace = true
 reth-node-ethereum.workspace = true
+reth-ress-provider.workspace = true
+reth-zk-ress-provider.workspace = true
 
 # misc
 clap.workspace = true
 eyre.workspace = true
+tracing.workspace = true

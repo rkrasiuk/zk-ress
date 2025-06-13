@@ -1,7 +1,6 @@
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, B256};
 use metrics::Gauge;
-use ress_primitives::witness::ExecutionWitness;
 use reth_metrics::Metrics;
 use reth_primitives_traits::{Block, RecoveredBlock};
 use schnellru::{ByLength, LruMap};
@@ -13,8 +12,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 pub(crate) struct BlockBufferMetrics {
     /// Total blocks in the block buffer.
     pub blocks: Gauge,
-    /// Total witnesses in the block buffer.
-    pub witnesses: Gauge,
+    /// Total proofs in the block buffer.
+    pub proofs: Gauge,
 }
 
 /// Contains the tree of pending blocks that cannot be executed due to missing parent.
@@ -29,13 +28,11 @@ pub(crate) struct BlockBufferMetrics {
 /// Note: Buffer is limited by number of blocks that it can contain and eviction of the block
 /// is done by last recently used block.
 #[derive(Debug)]
-pub struct BlockBuffer<B: Block> {
+pub struct BlockBuffer<B: Block, T> {
     /// All blocks in the buffer stored by their block hash.
     pub(crate) blocks: HashMap<BlockHash, RecoveredBlock<B>>,
-    /// All witnesses stored by their block hash.
-    pub(crate) witnesses: HashMap<BlockHash, ExecutionWitness>,
-    /// Missing bytecodes by block hash.
-    pub(crate) missing_bytecodes: HashMap<BlockHash, B256HashSet>,
+    /// All proofs stored by their block hash.
+    pub(crate) proofs: HashMap<BlockHash, T>,
     /// Map of any parent block hash (even the ones not currently in the buffer)
     /// to the buffered children.
     /// Allows connecting buffered blocks by parent.
@@ -52,13 +49,12 @@ pub struct BlockBuffer<B: Block> {
     pub(crate) metrics: BlockBufferMetrics,
 }
 
-impl<B: Block> BlockBuffer<B> {
+impl<B: Block, T> BlockBuffer<B, T> {
     /// Create new buffer with max limit of blocks
     pub fn new(limit: u32) -> Self {
         Self {
             blocks: Default::default(),
-            witnesses: Default::default(),
-            missing_bytecodes: Default::default(),
+            proofs: Default::default(),
             parent_to_child: Default::default(),
             earliest_blocks: Default::default(),
             lru: LruMap::new(ByLength::new(limit)),
@@ -66,9 +62,9 @@ impl<B: Block> BlockBuffer<B> {
         }
     }
 
-    /// Return reference to the requested witness.
-    pub fn witness(&self, hash: &BlockHash) -> Option<&ExecutionWitness> {
-        self.witnesses.get(hash)
+    /// Return reference to the requested proof.
+    pub fn proof(&self, hash: &BlockHash) -> Option<&T> {
+        self.proofs.get(hash)
     }
 
     /// Return a reference to the lowest ancestor of the given block in the buffer.
@@ -98,18 +94,10 @@ impl<B: Block> BlockBuffer<B> {
         self.metrics.blocks.set(self.blocks.len() as f64);
     }
 
-    /// Insert a witness in the buffer.
-    pub fn insert_witness(
-        &mut self,
-        block_hash: BlockHash,
-        witness: ExecutionWitness,
-        missing_bytecodes: B256HashSet,
-    ) {
-        self.witnesses.insert(block_hash, witness);
-        self.metrics.witnesses.set(self.witnesses.len() as f64);
-        if !missing_bytecodes.is_empty() {
-            self.missing_bytecodes.insert(block_hash, missing_bytecodes);
-        }
+    /// Insert a proof into the buffer.
+    pub fn insert_proof(&mut self, block_hash: BlockHash, proof: T) {
+        self.proofs.insert(block_hash, proof);
+        self.metrics.proofs.set(self.proofs.len() as f64);
     }
 
     /// Inserts the hash and returns the oldest evicted hash if any.
@@ -133,14 +121,14 @@ impl<B: Block> BlockBuffer<B> {
     pub fn remove_block_with_children(
         &mut self,
         parent_hash: BlockHash,
-    ) -> Vec<(RecoveredBlock<B>, ExecutionWitness)> {
+    ) -> Vec<(RecoveredBlock<B>, T)> {
         let removed = self
             .remove_block(&parent_hash)
             .into_iter()
             .chain(self.remove_children(Vec::from([parent_hash])))
             .collect();
         self.metrics.blocks.set(self.blocks.len() as f64);
-        self.metrics.witnesses.set(self.witnesses.len() as f64);
+        self.metrics.proofs.set(self.proofs.len() as f64);
         removed
     }
 
@@ -165,7 +153,7 @@ impl<B: Block> BlockBuffer<B> {
 
         self.evict_children(block_hashes_to_remove);
         self.metrics.blocks.set(self.blocks.len() as f64);
-        self.metrics.witnesses.set(self.witnesses.len() as f64);
+        self.metrics.proofs.set(self.proofs.len() as f64);
     }
 
     /// Remove block entry
@@ -194,27 +182,23 @@ impl<B: Block> BlockBuffer<B> {
     /// This method will only remove the block if it's present inside `self.blocks`.
     /// The block might be missing from other collections, the method will only ensure that it has
     /// been removed.
-    pub fn remove_block(
-        &mut self,
-        hash: &BlockHash,
-    ) -> Option<(RecoveredBlock<B>, ExecutionWitness)> {
+    pub fn remove_block(&mut self, hash: &BlockHash) -> Option<(RecoveredBlock<B>, T)> {
         if !self.blocks.contains_key(hash) {
             return None
         }
-        let witness = self.remove_witness(hash)?;
+        let proof = self.remove_proof(hash)?;
         let block = self.blocks.remove(hash).unwrap();
         self.remove_from_earliest_blocks(block.number(), hash);
         self.remove_from_parent(block.parent_hash(), hash);
         self.lru.remove(hash);
-        Some((block, witness))
+        Some((block, proof))
     }
 
     /// Evicts the block from inner collections.
     /// This method will only remove the block if it's present inside `self.blocks`.
     fn evict_block(&mut self, hash: &BlockHash) -> Option<RecoveredBlock<B>> {
         let block = self.blocks.remove(hash)?;
-        self.witnesses.remove(hash);
-        self.missing_bytecodes.remove(hash);
+        self.proofs.remove(hash);
         self.remove_from_earliest_blocks(block.number(), hash);
         self.remove_from_parent(block.parent_hash(), hash);
         self.lru.remove(hash);
@@ -222,10 +206,7 @@ impl<B: Block> BlockBuffer<B> {
     }
 
     /// Remove all children and their descendants for the given blocks and return them.
-    fn remove_children(
-        &mut self,
-        parent_hashes: Vec<BlockHash>,
-    ) -> Vec<(RecoveredBlock<B>, ExecutionWitness)> {
+    fn remove_children(&mut self, parent_hashes: Vec<BlockHash>) -> Vec<(RecoveredBlock<B>, T)> {
         // remove all parent child connection and all the child children blocks that are connected
         // to the discarded parent blocks.
         let mut remove_parent_children = parent_hashes;
@@ -235,8 +216,8 @@ impl<B: Block> BlockBuffer<B> {
             if let Some(parent_children) = self.parent_to_child.remove(&parent_hash) {
                 // remove child from buffer
                 for child_hash in &parent_children {
-                    if let Some((block, witness)) = self.remove_block(child_hash) {
-                        removed_blocks.push((block, witness));
+                    if let Some((block, proof)) = self.remove_block(child_hash) {
+                        removed_blocks.push((block, proof));
                     }
                 }
                 remove_parent_children.extend(parent_children);
@@ -262,30 +243,9 @@ impl<B: Block> BlockBuffer<B> {
         }
     }
 
-    /// Remove witness from the buffer.
-    pub fn remove_witness(&mut self, block_hash: &BlockHash) -> Option<ExecutionWitness> {
-        // Remove the witness only if there are no missing bytecodes for it.
-        if self.missing_bytecodes.get(block_hash).is_none_or(|b| b.is_empty()) {
-            self.missing_bytecodes.remove(block_hash);
-            return self.witnesses.remove(block_hash)
-        }
-        None
-    }
-
-    /// Update missing bytecodes on bytecode received.
-    /// Returns block hashes that are ready for insertion.
-    pub fn on_bytecode_received(&mut self, code_hash: B256) -> B256HashSet {
-        let mut block_hashes = B256HashSet::default();
-        self.missing_bytecodes.retain(|block_hash, missing| {
-            missing.remove(&code_hash);
-            if missing.is_empty() {
-                block_hashes.insert(*block_hash);
-                false
-            } else {
-                true
-            }
-        });
-        block_hashes
+    /// Remove proof from the buffer.
+    pub fn remove_proof(&mut self, block_hash: &BlockHash) -> Option<T> {
+        self.proofs.remove(block_hash)
     }
 }
 
@@ -297,6 +257,7 @@ mod tests {
     use reth_primitives_traits::RecoveredBlock;
     use reth_testing_utils::generators::{self, random_block, BlockParams, Rng};
     use std::collections::HashMap;
+    use zk_ress_primitives::witness::ExecutionWitness;
 
     /// Create random block with specified number and parent hash.
     fn create_block<R: Rng>(
@@ -309,14 +270,17 @@ mod tests {
         block.try_recover().unwrap()
     }
 
-    /// Insert block with default witness.
-    fn insert_block_with_witness<B: Block>(buffer: &mut BlockBuffer<B>, block: RecoveredBlock<B>) {
-        buffer.insert_witness(block.hash(), Default::default(), Default::default());
+    /// Insert block with default proof.
+    fn insert_block_with_proof<B: Block>(
+        buffer: &mut BlockBuffer<B, ExecutionWitness>,
+        block: RecoveredBlock<B>,
+    ) {
+        buffer.insert_proof(block.hash(), Default::default());
         buffer.insert_block(block);
     }
 
     /// Assert that all buffer collections have the same data length.
-    fn assert_buffer_lengths<B: Block>(buffer: &BlockBuffer<B>, expected: usize) {
+    fn assert_buffer_lengths<B: Block>(buffer: &BlockBuffer<B, ExecutionWitness>, expected: usize) {
         assert_eq!(buffer.blocks.len(), expected);
         assert_eq!(buffer.lru.len(), expected);
         assert_eq!(
@@ -331,7 +295,7 @@ mod tests {
 
     /// Assert that the block was removed from all buffer collections.
     fn assert_block_removal<B: Block>(
-        buffer: &BlockBuffer<B>,
+        buffer: &BlockBuffer<B, ExecutionWitness>,
         block: &RecoveredBlock<reth_primitives::Block>,
     ) {
         assert!(!buffer.blocks.contains_key(&block.hash()));
@@ -372,10 +336,10 @@ mod tests {
 
         let mut buffer = BlockBuffer::new(5);
 
-        insert_block_with_witness(&mut buffer, block1.clone());
-        insert_block_with_witness(&mut buffer, block2.clone());
-        insert_block_with_witness(&mut buffer, block3.clone());
-        insert_block_with_witness(&mut buffer, block4.clone());
+        insert_block_with_proof(&mut buffer, block1.clone());
+        insert_block_with_proof(&mut buffer, block2.clone());
+        insert_block_with_proof(&mut buffer, block3.clone());
+        insert_block_with_proof(&mut buffer, block4.clone());
 
         assert_buffer_lengths(&buffer, 4);
         assert_eq!(buffer.blocks.get(&block4.hash()), Some(&block4));
@@ -404,10 +368,10 @@ mod tests {
 
         let mut buffer = BlockBuffer::new(5);
 
-        insert_block_with_witness(&mut buffer, block1.clone());
-        insert_block_with_witness(&mut buffer, block2.clone());
-        insert_block_with_witness(&mut buffer, block3.clone());
-        insert_block_with_witness(&mut buffer, block4.clone());
+        insert_block_with_proof(&mut buffer, block1.clone());
+        insert_block_with_proof(&mut buffer, block2.clone());
+        insert_block_with_proof(&mut buffer, block3.clone());
+        insert_block_with_proof(&mut buffer, block4.clone());
 
         assert_buffer_lengths(&buffer, 4);
         assert_eq!(
@@ -438,10 +402,10 @@ mod tests {
 
         let mut buffer = BlockBuffer::new(5);
 
-        insert_block_with_witness(&mut buffer, block1.clone());
-        insert_block_with_witness(&mut buffer, block2.clone());
-        insert_block_with_witness(&mut buffer, block3.clone());
-        insert_block_with_witness(&mut buffer, block4.clone());
+        insert_block_with_proof(&mut buffer, block1.clone());
+        insert_block_with_proof(&mut buffer, block2.clone());
+        insert_block_with_proof(&mut buffer, block3.clone());
+        insert_block_with_proof(&mut buffer, block4.clone());
 
         assert_buffer_lengths(&buffer, 4);
         assert_eq!(

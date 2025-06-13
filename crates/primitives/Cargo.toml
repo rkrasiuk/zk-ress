@@ -1,5 +1,5 @@
 [package]
-name = "ress-primitives"
+name = "zk-ress-primitives"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,6 +14,9 @@ workspace = true
 alloy-primitives.workspace = true
 alloy-rlp.workspace = true
 alloy-trie.workspace = true
+
+reth-zk-ress-protocol.workspace = true
+reth-ress-protocol.workspace = true
 
 # `serde` feature
 serde = { workspace = true, optional = true }
