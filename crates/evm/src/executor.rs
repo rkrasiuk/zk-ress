@@ -1,7 +1,9 @@
 //! EVM block executor implementation.
 
+use std::collections::BTreeMap;
+
 use alloy_eips::BlockNumHash;
-use alloy_primitives::map::B256Map;
+use alloy_primitives::{map::B256Map, B256};
 use reth_evm::{
     execute::{BlockExecutionError, BlockExecutor as _},
     ConfigureEvm,
@@ -34,9 +36,10 @@ impl<'a> BlockExecutor<'a> {
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,
+        block_hashes: BTreeMap<u64, B256>,
     ) -> Self {
         let evm_config = EthEvmConfig::new(provider.chain_spec());
-        let db = WitnessDatabase::new(provider, parent, trie, bytecodes);
+        let db = WitnessDatabase::new(provider, parent, trie, bytecodes, block_hashes);
         let state =
             State::builder().with_database(db).with_bundle_update().without_state_clear().build();
         Self { evm_config, state }

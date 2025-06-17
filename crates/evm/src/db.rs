@@ -1,5 +1,7 @@
 //! EVM database implementation.
 
+use std::collections::BTreeMap;
+
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{keccak256, map::B256Map, Address, B256, U256};
 use alloy_rlp::Decodable;
@@ -19,6 +21,7 @@ pub struct WitnessDatabase<'a> {
     parent: BlockNumHash,
     trie: &'a SparseStateTrie,
     bytecodes: &'a B256Map<Bytecode>,
+    block_hashes: BTreeMap<u64, B256>,
 }
 
 impl<'a> WitnessDatabase<'a> {
@@ -28,8 +31,9 @@ impl<'a> WitnessDatabase<'a> {
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,
+        block_hashes: BTreeMap<u64, B256>,
     ) -> Self {
-        Self { provider, parent, trie, bytecodes }
+        Self { provider, parent, trie, bytecodes, block_hashes }
     }
 }
 
@@ -43,7 +47,7 @@ impl Database for WitnessDatabase<'_> {
         trace!(target: "ress::evm", %address, %hashed_address, "retrieving account");
         let Some(bytes) = self.trie.get_account_value(&hashed_address) else {
             trace!(target: "ress::evm", %address, %hashed_address, "no account found");
-            return Ok(None)
+            return Ok(None);
         };
         let account = TrieAccount::decode(&mut bytes.as_slice())?;
         let account_info = AccountInfo {
@@ -82,8 +86,9 @@ impl Database for WitnessDatabase<'_> {
     /// Get block hash by block number.
     fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
         trace!(target: "ress::evm", block_number, parent = ?self.parent, "retrieving block hash");
-        self.provider
-            .block_hash(self.parent, block_number)
-            .ok_or(ProviderError::StateForNumberNotFound(block_number))
+        // self.provider
+        //     .block_hash(self.parent, block_number)
+        //     .ok_or(ProviderError::StateForNumberNotFound(block_number))
+        Ok(self.block_hashes[&block_number])
     }
 }

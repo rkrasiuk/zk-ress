@@ -18,6 +18,7 @@ zk-ress-evm.workspace = true
 # alloy
 alloy-primitives.workspace = true
 alloy-rlp.workspace = true
+alloy-consensus.workspace = true
 
 # reth
 reth-ress-protocol.workspace = true
