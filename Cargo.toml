@@ -81,85 +81,85 @@ zk-ress-testing = { path = "crates/testing" }
 zk-ress-verifier = { path = "crates/verifier" }
 
 # reth ress
-reth-ress-protocol = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ress-provider = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-zk-ress-protocol = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-zk-ress-provider = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-ress-protocol = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-ress-provider = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-zk-ress-protocol = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-zk-ress-provider = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 # reth
-reth = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 ## primitives/types
-reth-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-errors = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-primitives-traits = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-chainspec = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-storage-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 ## db
-reth-db = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-db-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-storage-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-provider = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress", features = [
+reth-db = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-db-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-storage-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-provider = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes", features = [
     "test-utils",
 ] }
 
 ## network
-reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-network-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-network = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-network-peers = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-discv4 = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-eth-wire = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-network-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-network = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-network-peers = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-discv4 = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 ## trie
-reth-trie = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-trie-sparse = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-trie = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-trie-sparse = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 ## evm
-reth-revm = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-evm = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-revm = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-evm = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 ## consensus
-reth-consensus = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ethereum-consensus = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-consensus-debug-client = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-engine-tree = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-chain-state = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-consensus = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-ethereum-consensus = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-engine-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-engine-tree = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-chain-state = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 ## rpc
-reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-engine-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-layer = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-types-compat = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-builder = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-rpc-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-rpc-layer = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-rpc-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-rpc = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 ## node
-reth-node-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-core = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-builder = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-events = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-metrics = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-payload-builder = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress", features = [
+reth-node-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-node-core = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-node-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-node-ethereum = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-node-events = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-node-metrics = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-payload-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes", features = [
     "test-utils",
 ] }
-reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-transaction-pool = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 ## util
-reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-tasks = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-cli = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-cli-util = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ethereum-cli = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-metrics = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-testing-utils = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-tokio-util = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-tracing = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-tasks = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-cli = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-cli-util = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-metrics = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-testing-utils = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 # alloy
 alloy-primitives = { version = "1.1.0", default-features = false }
