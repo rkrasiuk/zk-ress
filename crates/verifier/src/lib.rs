@@ -104,9 +104,8 @@ impl BlockVerifier for ExecutionWitnessVerifier {
             state_witness.insert(keccak256(&encoded), encoded);
         }
 
-        // TODO:
-        // trie.reveal_witness(parent.state_root, &state_witness)
-        //     .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))?;
+        trie.reveal_witness(parent.state_root, &state_witness)
+            .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))?;
 
         let mut bytecodes = B256Map::default();
         for bytes in proof.bytecodes {
