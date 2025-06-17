@@ -96,6 +96,7 @@ reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", branch 
 reth-chainspec = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 reth-storage-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 reth-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
+reth-stateless = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }
 
 ## db
 reth-db = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-post-berlin-changes" }

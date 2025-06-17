@@ -30,6 +30,8 @@ reth-revm.workspace = true
 reth-trie.workspace = true
 reth-trie-sparse.workspace = true
 reth-errors.workspace = true
+reth-stateless.workspace = true
+reth-evm-ethereum.workspace = true
 
 # misc
 rayon.workspace = true
