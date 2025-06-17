@@ -152,7 +152,7 @@ impl BlockVerifier for ExecutionWitnessVerifier {
         // ===================== Execution =====================
         let start_time = Instant::now();
         let block_executor = BlockExecutor::new(
-            self.provider.clone(),
+            self.provider.chain_spec(),
             block.parent_num_hash(),
             &trie,
             &bytecodes,

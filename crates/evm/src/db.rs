@@ -17,7 +17,6 @@ use zk_ress_provider::ZkRessProvider;
 /// retrieval. Block hashes and bytecodes are retrieved from the [`RessProvider`].
 #[derive(Debug)]
 pub struct WitnessDatabase<'a> {
-    provider: ZkRessProvider<ExecutionStateWitness>,
     parent: BlockNumHash,
     trie: &'a SparseStateTrie,
     bytecodes: &'a B256Map<Bytecode>,
@@ -27,13 +26,12 @@ pub struct WitnessDatabase<'a> {
 impl<'a> WitnessDatabase<'a> {
     /// Create new witness database.
     pub fn new(
-        provider: ZkRessProvider<ExecutionStateWitness>,
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,
         block_hashes: BTreeMap<u64, B256>,
     ) -> Self {
-        Self { provider, parent, trie, bytecodes, block_hashes }
+        Self { parent, trie, bytecodes, block_hashes }
     }
 }
 
@@ -86,9 +84,6 @@ impl Database for WitnessDatabase<'_> {
     /// Get block hash by block number.
     fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
         trace!(target: "ress::evm", block_number, parent = ?self.parent, "retrieving block hash");
-        // self.provider
-        //     .block_hash(self.parent, block_number)
-        //     .ok_or(ProviderError::StateForNumberNotFound(block_number))
         Ok(self.block_hashes[&block_number])
     }
 }
