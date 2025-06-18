@@ -2,7 +2,7 @@ use crate::{
     download::{DownloadData, DownloadOutcome, EngineDownloader},
     tree::{DownloadRequest, EngineTree, TreeAction, TreeEvent},
 };
-use alloy_primitives::{map::B256HashSet, B256};
+use alloy_primitives::{map::B256HashSet, Bytes, B256};
 use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
 use metrics::Histogram;
@@ -12,7 +12,6 @@ use reth_errors::ProviderError;
 use reth_metrics::Metrics;
 use reth_node_api::{BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError};
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes, EthereumEngineValidator};
-use reth_zk_ress_protocol::ExecutionProof;
 use std::{
     future::Future,
     pin::Pin,
@@ -39,23 +38,22 @@ pub(crate) struct ConsensusEngineMetrics {
 
 /// Ress consensus engine.
 #[allow(missing_debug_implementations)]
-pub struct ConsensusEngine<P, V> {
-    tree: EngineTree<P, V>,
-    downloader: EngineDownloader<P>,
+pub struct ConsensusEngine<V> {
+    tree: EngineTree<V>,
+    downloader: EngineDownloader,
     from_beacon_engine: UnboundedReceiverStream<BeaconEngineMessage<EthEngineTypes>>,
     parked_payload_timeout: Duration,
     parked_payload: Option<ParkedPayload>,
     metrics: ConsensusEngineMetrics,
 }
 
-impl<P, V> ConsensusEngine<P, V>
+impl<V> ConsensusEngine<V>
 where
-    P: ExecutionProof,
-    V: BlockVerifier<Proof = P>,
+    V: BlockVerifier,
 {
     /// Initialize consensus engine.
     pub fn new(
-        provider: ZkRessProvider<P>,
+        provider: ZkRessProvider,
         consensus: EthBeaconConsensus<ChainSpec>,
         engine_validator: EthereumEngineValidator,
         block_verifier: V,
@@ -107,7 +105,7 @@ where
 
     fn on_download_outcome(
         &mut self,
-        outcome: DownloadOutcome<P>,
+        outcome: DownloadOutcome,
     ) -> Result<(), InsertBlockFatalError> {
         let elapsed = outcome.elapsed;
         let mut unlocked_block_hashes = B256HashSet::default();
@@ -141,7 +139,7 @@ where
                 unlocked_block_hashes.insert(block_num_hash.hash);
             }
             DownloadData::Proof(block_hash, witness) => {
-                let rlp_size = humansize::format_size(witness.length(), humansize::DECIMAL);
+                let rlp_size = humansize::format_size(witness.len(), humansize::DECIMAL);
 
                 // Record witness metrics before inserting the witness
                 self.record_proof_metrics(&witness);
@@ -251,16 +249,15 @@ where
     }
 
     /// Record proof metrics
-    fn record_proof_metrics(&self, proof: &P) {
-        let proof_size_bytes = proof.length();
+    fn record_proof_metrics(&self, proof: &Bytes) {
+        let proof_size_bytes = proof.len();
         self.metrics.proof_size_bytes.record(proof_size_bytes as f64);
     }
 }
 
-impl<P, V> Future for ConsensusEngine<P, V>
+impl<V> Future for ConsensusEngine<V>
 where
-    P: ExecutionProof,
-    V: BlockVerifier<Proof = P>,
+    V: BlockVerifier,
 {
     type Output = Result<(), InsertBlockFatalError>;
 

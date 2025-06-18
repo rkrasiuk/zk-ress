@@ -1,5 +1,5 @@
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{BlockHash, BlockNumber};
+use alloy_primitives::{BlockHash, BlockNumber, Bytes};
 use metrics::Gauge;
 use reth_metrics::Metrics;
 use reth_primitives_traits::{Block, RecoveredBlock};
@@ -28,11 +28,11 @@ pub(crate) struct BlockBufferMetrics {
 /// Note: Buffer is limited by number of blocks that it can contain and eviction of the block
 /// is done by last recently used block.
 #[derive(Debug)]
-pub struct BlockBuffer<B: Block, T> {
+pub struct BlockBuffer<B: Block> {
     /// All blocks in the buffer stored by their block hash.
     pub(crate) blocks: HashMap<BlockHash, RecoveredBlock<B>>,
     /// All proofs stored by their block hash.
-    pub(crate) proofs: HashMap<BlockHash, T>,
+    pub(crate) proofs: HashMap<BlockHash, Bytes>,
     /// Map of any parent block hash (even the ones not currently in the buffer)
     /// to the buffered children.
     /// Allows connecting buffered blocks by parent.
@@ -49,7 +49,7 @@ pub struct BlockBuffer<B: Block, T> {
     pub(crate) metrics: BlockBufferMetrics,
 }
 
-impl<B: Block, T> BlockBuffer<B, T> {
+impl<B: Block> BlockBuffer<B> {
     /// Create new buffer with max limit of blocks
     pub fn new(limit: u32) -> Self {
         Self {
@@ -63,7 +63,7 @@ impl<B: Block, T> BlockBuffer<B, T> {
     }
 
     /// Return reference to the requested proof.
-    pub fn proof(&self, hash: &BlockHash) -> Option<&T> {
+    pub fn proof(&self, hash: &BlockHash) -> Option<&Bytes> {
         self.proofs.get(hash)
     }
 
@@ -95,7 +95,7 @@ impl<B: Block, T> BlockBuffer<B, T> {
     }
 
     /// Insert a proof into the buffer.
-    pub fn insert_proof(&mut self, block_hash: BlockHash, proof: T) {
+    pub fn insert_proof(&mut self, block_hash: BlockHash, proof: Bytes) {
         self.proofs.insert(block_hash, proof);
         self.metrics.proofs.set(self.proofs.len() as f64);
     }
@@ -121,7 +121,7 @@ impl<B: Block, T> BlockBuffer<B, T> {
     pub fn remove_block_with_children(
         &mut self,
         parent_hash: BlockHash,
-    ) -> Vec<(RecoveredBlock<B>, T)> {
+    ) -> Vec<(RecoveredBlock<B>, Bytes)> {
         let removed = self
             .remove_block(&parent_hash)
             .into_iter()
@@ -182,7 +182,7 @@ impl<B: Block, T> BlockBuffer<B, T> {
     /// This method will only remove the block if it's present inside `self.blocks`.
     /// The block might be missing from other collections, the method will only ensure that it has
     /// been removed.
-    pub fn remove_block(&mut self, hash: &BlockHash) -> Option<(RecoveredBlock<B>, T)> {
+    pub fn remove_block(&mut self, hash: &BlockHash) -> Option<(RecoveredBlock<B>, Bytes)> {
         if !self.blocks.contains_key(hash) {
             return None
         }
@@ -206,7 +206,7 @@ impl<B: Block, T> BlockBuffer<B, T> {
     }
 
     /// Remove all children and their descendants for the given blocks and return them.
-    fn remove_children(&mut self, parent_hashes: Vec<BlockHash>) -> Vec<(RecoveredBlock<B>, T)> {
+    fn remove_children(&mut self, parent_hashes: Vec<BlockHash>) -> Vec<(RecoveredBlock<B>, Bytes)> {
         // remove all parent child connection and all the child children blocks that are connected
         // to the discarded parent blocks.
         let mut remove_parent_children = parent_hashes;
@@ -244,7 +244,7 @@ impl<B: Block, T> BlockBuffer<B, T> {
     }
 
     /// Remove proof from the buffer.
-    pub fn remove_proof(&mut self, block_hash: &BlockHash) -> Option<T> {
+    pub fn remove_proof(&mut self, block_hash: &BlockHash) -> Option<Bytes> {
         self.proofs.remove(block_hash)
     }
 }

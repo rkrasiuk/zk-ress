@@ -1,7 +1,7 @@
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{
     map::{B256HashMap, B256HashSet},
-    BlockHash, BlockNumber, B256,
+    BlockHash, BlockNumber, Bytes, B256,
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
@@ -15,16 +15,16 @@ use std::{
 /// Stores all validated blocks as well as keeps track of the ones
 /// that form the canonical chain.
 #[derive(Clone, Debug)]
-pub struct ChainState<P>(Arc<RwLock<ChainStateInner<P>>>);
+pub struct ChainState(Arc<RwLock<ChainStateInner>>);
 
-impl<P> Default for ChainState<P> {
+impl Default for ChainState {
     fn default() -> Self {
         Self(Arc::new(RwLock::new(Default::default())))
     }
 }
 
 #[derive(Debug)]
-struct ChainStateInner<P> {
+struct ChainStateInner {
     /// Canonical block hashes stored by respective block number.
     canonical_hashes_by_number: BTreeMap<BlockNumber, B256>,
     /// __All__ validated blocks by block hash that are connected to the canonical chain.
@@ -34,10 +34,10 @@ struct ChainStateInner<P> {
     /// __All__ block hashes stored by their number.
     block_hashes_by_number: BTreeMap<BlockNumber, B256HashSet>,
     /// Valid block proofs by block hash.
-    proofs: B256HashMap<P>,
+    proofs: B256HashMap<Bytes>,
 }
 
-impl<P> Default for ChainStateInner<P> {
+impl Default for ChainStateInner {
     fn default() -> Self {
         Self {
             canonical_hashes_by_number: Default::default(),
@@ -48,7 +48,7 @@ impl<P> Default for ChainStateInner<P> {
     }
 }
 
-impl<P: Clone> ChainState<P> {
+impl ChainState {
     /// Returns `true` if block hash is canonical.
     pub fn is_hash_canonical(&self, hash: &BlockHash) -> bool {
         self.0.read().canonical_hashes_by_number.values().contains(hash)
@@ -125,12 +125,12 @@ impl<P: Clone> ChainState<P> {
     }
 
     /// Returns proof by block hash.
-    pub fn proof(&self, hash: &BlockHash) -> Option<P> {
+    pub fn proof(&self, hash: &BlockHash) -> Option<Bytes> {
         self.0.read().proofs.get(hash).cloned()
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_proof: Option<P>) {
+    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_proof: Option<Bytes>) {
         let mut this = self.0.write();
         let block_hash = block.hash();
         this.block_hashes_by_number.entry(block.number).or_default().insert(block_hash);

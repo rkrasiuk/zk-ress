@@ -1,15 +1,12 @@
 use alloy_primitives::{Bytes, B256};
-use alloy_rlp::Decodable;
 use futures::FutureExt;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus, HeaderValidator};
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Block, BlockBody, Header, SealedBlock, SealedHeader};
 use reth_ress_protocol::GetHeaders;
-use reth_zk_ress_protocol::ExecutionProof;
 use std::{
     future::Future,
-    marker::PhantomData,
     pin::Pin,
     task::{ready, Context, Poll},
     time::{Duration, Instant},
@@ -510,16 +507,15 @@ impl Future for FetchFullBlockRangeFuture {
 
 /// A future that downloads a proof from the network.
 #[must_use = "futures do nothing unless polled"]
-pub struct FetchProofFuture<P> {
+pub struct FetchProofFuture {
     network: RessNetworkHandle,
     block_hash: B256,
     retry_delay: Duration,
     started_at: Instant,
     pending: DownloadFut<Bytes>,
-    __phantom: PhantomData<P>,
 }
 
-impl<P> FetchProofFuture<P> {
+impl FetchProofFuture {
     /// Create new fetch proof future.
     pub fn new(network: RessNetworkHandle, retry_delay: Duration, block_hash: B256) -> Self {
         let network_ = network.clone();
@@ -529,7 +525,6 @@ impl<P> FetchProofFuture<P> {
             block_hash,
             started_at: Instant::now(),
             pending: Box::pin(async move { network_.fetch_proof(block_hash).await }),
-            __phantom: PhantomData,
         }
     }
 
@@ -554,24 +549,19 @@ impl<P> FetchProofFuture<P> {
     }
 }
 
-impl<P: ExecutionProof> Future for FetchProofFuture<P> {
-    type Output = P;
+impl Future for FetchProofFuture {
+    type Output = Bytes;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
         loop {
             match ready!(this.pending.poll_unpin(cx)) {
-                Ok(proof) => match <P as Decodable>::decode(&mut &proof[..]) {
-                    Ok(proof) => {
-                        if proof.is_empty() {
-                            trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty proof");
-                        } else {
-                            return Poll::Ready(proof)
-                        }
-                    }
-                    Err(error) => {
-                        trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, ?error, "Could not convert network proof");
+                Ok(proof) => {
+                    if proof.is_empty() {
+                        trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty proof");
+                    } else {
+                        return Poll::Ready(proof)
                     }
                 },
                 Err(error) => {

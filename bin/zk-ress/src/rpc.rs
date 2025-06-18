@@ -16,11 +16,11 @@ use zk_ress_provider::ZkRessProvider;
 
 /// Implementation of minimal eth RPC interface for Engine API.
 #[derive(Debug)]
-pub struct RessEthRpc<P>(ZkRessProvider<P>);
+pub struct RessEthRpc(ZkRessProvider);
 
-impl<P> RessEthRpc<P> {
+impl RessEthRpc {
     /// Creates new ress RPC provider.
-    pub fn new(provider: ZkRessProvider<P>) -> Self {
+    pub fn new(provider: ZkRessProvider) -> Self {
         Self(provider)
     }
 }
@@ -28,9 +28,7 @@ impl<P> RessEthRpc<P> {
 /// Minimal eth RPC interface for Engine API.
 /// Ref: <https://github.com/ethereum/execution-apis/blob/main/src/engine/common.md#underlying-protocol>
 #[async_trait::async_trait]
-impl<P> EngineEthApiServer<RpcBlock<Ethereum>, RpcReceipt<Ethereum>> for RessEthRpc<P>
-where
-    P: Clone + Send + Sync + 'static,
+impl EngineEthApiServer<RpcBlock<Ethereum>, RpcReceipt<Ethereum>> for RessEthRpc
 {
     /// Handler for: `eth_syncing`
     fn syncing(&self) -> Result<SyncStatus> {
