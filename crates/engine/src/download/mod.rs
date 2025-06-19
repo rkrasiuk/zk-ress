@@ -1,11 +1,10 @@
-use alloy_primitives::{map::HashMap, B256};
+use alloy_primitives::{map::HashMap, Bytes, B256};
 use futures::FutureExt;
 use metrics::{Counter, Gauge, Histogram};
 use reth_chainspec::ChainSpec;
 use reth_metrics::Metrics;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{SealedBlock, SealedHeader};
-use reth_zk_ress_protocol::ExecutionProof;
 use std::{
     collections::VecDeque,
     task::{Context, Poll},
@@ -21,20 +20,20 @@ use futs::*;
 
 /// Struct for downloading chain data from the network.
 #[allow(missing_debug_implementations)]
-pub struct EngineDownloader<P> {
+pub struct EngineDownloader {
     network: RessNetworkHandle,
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
 
     inflight_full_block_requests: Vec<FetchFullBlockFuture>,
-    inflight_proof_requests: Vec<FetchProofFuture<P>>,
+    inflight_proof_requests: Vec<FetchProofFuture>,
     inflight_finalized_block_requests: Vec<FetchFullBlockWithAncestorsFuture>,
-    outcomes: VecDeque<DownloadOutcome<P>>,
+    outcomes: VecDeque<DownloadOutcome>,
 
     metrics: EngineDownloaderMetrics,
 }
 
-impl<P: ExecutionProof> EngineDownloader<P> {
+impl EngineDownloader {
     /// Create new engine downloader.
     pub fn new(network: RessNetworkHandle, consensus: EthBeaconConsensus<ChainSpec>) -> Self {
         Self {
@@ -101,7 +100,7 @@ impl<P: ExecutionProof> EngineDownloader<P> {
     }
 
     /// Poll downloader.
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome<P>> {
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome> {
         if let Some(outcome) = self.outcomes.pop_front() {
             return Poll::Ready(outcome)
         }
@@ -167,27 +166,27 @@ impl<P: ExecutionProof> EngineDownloader<P> {
 
 /// Download outcome.
 #[derive(Debug)]
-pub struct DownloadOutcome<T> {
+pub struct DownloadOutcome {
     /// Downloaded data.
-    pub data: DownloadData<T>,
+    pub data: DownloadData,
     /// Time elapsed since download started.
     pub elapsed: Duration,
 }
 
-impl<T> DownloadOutcome<T> {
+impl DownloadOutcome {
     /// Create new download outcome.
-    pub fn new(data: DownloadData<T>, elapsed: Duration) -> Self {
+    pub fn new(data: DownloadData, elapsed: Duration) -> Self {
         Self { data, elapsed }
     }
 }
 
 /// Download data.
 #[derive(Debug)]
-pub enum DownloadData<T> {
+pub enum DownloadData {
     /// Downloaded full block.
     FullBlock(SealedBlock),
     /// Downloaded execution proof.
-    Proof(B256, T),
+    Proof(B256, Bytes),
     /// Downloaded full block with ancestors.
     FinalizedBlock(SealedBlock, Vec<SealedHeader>),
 }

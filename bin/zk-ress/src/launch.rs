@@ -231,15 +231,13 @@ impl NodeLauncher {
         Ok(RessNetworkHandle::new(network_handle, peer_requests_tx))
     }
 
-    async fn start_auth_server<P>(
+    async fn start_auth_server(
         &self,
         jwt_key: JwtSecret,
-        provider: ZkRessProvider<P>,
+        provider: ZkRessProvider,
         engine_validator: EthereumEngineValidator,
         beacon_engine_handle: BeaconConsensusEngineHandle<EthEngineTypes>,
     ) -> eyre::Result<AuthServerHandle>
-    where
-        P: Clone + Send + Sync + 'static,
     {
         let (_, payload_builder_handle) = NoopPayloadBuilderService::<EthEngineTypes>::new();
         let client_version = ClientVersionV1 {

@@ -1,7 +1,6 @@
 use crate::chain_state::ChainState;
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{bytes::BytesMut, BlockHash, BlockNumber, Bytes, B256};
-use alloy_rlp::Encodable;
+use alloy_primitives::{BlockHash, BlockNumber, Bytes, B256};
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedHeader};
 use reth_storage_errors::provider::ProviderResult;
@@ -12,12 +11,12 @@ use std::sync::Arc;
 ///
 /// This type is a main entrypoint for fetching chain and supplementary state data.
 #[derive(Clone, Debug)]
-pub struct ZkRessProvider<P> {
+pub struct ZkRessProvider {
     chain_spec: Arc<ChainSpec>,
-    chain_state: ChainState<P>,
+    chain_state: ChainState,
 }
 
-impl<P: Clone> ZkRessProvider<P> {
+impl ZkRessProvider {
     /// Instantiate new storage.
     pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
         Self { chain_spec, chain_state: ChainState::default() }
@@ -50,7 +49,7 @@ impl<P: Clone> ZkRessProvider<P> {
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<P>) {
+    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<Bytes>) {
         self.chain_state.insert_block(block, maybe_witness);
     }
 
@@ -77,10 +76,7 @@ impl<P: Clone> ZkRessProvider<P> {
     }
 }
 
-impl<P> ZkRessProtocolProvider for ZkRessProvider<P>
-where
-    P: Encodable + Clone + Send + Sync,
-{
+impl ZkRessProtocolProvider for ZkRessProvider {
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
         Ok(self.chain_state.header(&block_hash))
     }
@@ -90,13 +86,6 @@ where
     }
 
     async fn proof(&self, block_hash: B256) -> ProviderResult<Bytes> {
-        let proof = if let Some(proof) = self.chain_state.proof(&block_hash) {
-            let mut encoded = BytesMut::new();
-            proof.encode(&mut encoded);
-            encoded.freeze().into()
-        } else {
-            Bytes::default()
-        };
-        Ok(proof)
+        Ok(self.chain_state.proof(&block_hash).unwrap_or_default())
     }
 }

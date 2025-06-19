@@ -1,5 +1,5 @@
 use alloy_eips::BlockNumHash;
-use alloy_primitives::B256;
+use alloy_primitives::{Bytes, B256};
 use alloy_rpc_types_engine::{
     ExecutionData, ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum,
     PayloadValidationError,
@@ -36,9 +36,9 @@ pub use block_buffer::BlockBuffer;
 
 /// Consensus engine tree for storing and validating blocks as well as advancing the chain.
 #[derive(Debug)]
-pub struct EngineTree<P, V> {
+pub struct EngineTree<V> {
     /// Ress provider.
-    pub(crate) provider: ZkRessProvider<P>,
+    pub(crate) provider: ZkRessProvider,
     /// Consensus.
     pub(crate) consensus: EthBeaconConsensus<ChainSpec>,
     /// Engine validator.
@@ -51,7 +51,7 @@ pub struct EngineTree<P, V> {
     /// Tracks the forkchoice state updates received by the CL.
     pub(crate) forkchoice_state_tracker: ForkchoiceStateTracker,
     /// Pending block buffer.
-    pub(crate) block_buffer: BlockBuffer<Block, P>,
+    pub(crate) block_buffer: BlockBuffer<Block>,
     /// Invalid headers.
     pub(crate) invalid_headers: InvalidHeaderCache,
 
@@ -61,14 +61,13 @@ pub struct EngineTree<P, V> {
     metrics: EngineTreeMetrics,
 }
 
-impl<P, V> EngineTree<P, V>
+impl<V> EngineTree<V>
 where
-    P: Clone,
-    V: BlockVerifier<Proof = P>,
+    V: BlockVerifier,
 {
     /// Create new engine tree.
     pub fn new(
-        provider: ZkRessProvider<P>,
+        provider: ZkRessProvider,
         consensus: EthBeaconConsensus<ChainSpec>,
         engine_validator: EthereumEngineValidator,
         block_verifier: V,
@@ -475,7 +474,7 @@ where
     pub fn on_new_payload(
         &mut self,
         payload: ExecutionData,
-        maybe_proof: Option<P>,
+        maybe_proof: Option<Bytes>,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let parent_hash = payload.payload.parent_hash();
 
@@ -553,7 +552,7 @@ where
     pub fn on_downloaded_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        proof: P,
+        proof: Bytes,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let block_num_hash = block.num_hash();
         let lowest_buffered_ancestor = self.lowest_buffered_ancestor_or(block_num_hash.hash);
@@ -654,7 +653,7 @@ where
     pub fn insert_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        maybe_proof: Option<P>,
+        maybe_proof: Option<Bytes>,
     ) -> Result<InsertPayloadOk, InsertBlockErrorKind> {
         let start = Instant::now();
         let block_num_hash = block.num_hash();

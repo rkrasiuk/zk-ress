@@ -1,6 +1,8 @@
 //! Block verifier for `zk-ress` stateless client.
 
-use alloy_primitives::{keccak256, map::B256Map};
+use alloy_consensus::{BlockHeader, Header};
+use alloy_primitives::{keccak256, map::B256Map, Bytes, B256};
+use alloy_rlp::Decodable;
 use rayon::prelude::*;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus as _, FullConsensus, HeaderValidator as _};
@@ -11,8 +13,7 @@ use reth_ress_protocol::ExecutionStateWitness;
 use reth_revm::state::Bytecode;
 use reth_trie::{HashedPostState, KeccakKeyHasher};
 use reth_trie_sparse::{blinded::DefaultBlindedProviderFactory, SparseStateTrie};
-use reth_zk_ress_protocol::ExecutionProof;
-use std::time::Instant;
+use std::{collections::BTreeMap, time::Instant};
 use tracing::*;
 use zk_ress_evm::BlockExecutor;
 use zk_ress_provider::ZkRessProvider;
@@ -24,15 +25,12 @@ pub use root::calculate_state_root;
 ///
 /// Given the proof, it must verify full validity of the block according to Ethereum consensus.
 pub trait BlockVerifier: Unpin {
-    /// The type of the execution proof used for verification.
-    type Proof: ExecutionProof;
-
     /// Verify that the block is valid.
     fn verify(
         &self,
         block: RecoveredBlock<Block>,
         parent: SealedHeader,
-        proof: Self::Proof,
+        proof: Bytes,
     ) -> Result<(), VerifierError>;
 }
 
@@ -57,14 +55,14 @@ pub enum VerifierError {
 /// re-executing it using execution witness.
 #[derive(Debug)]
 pub struct ExecutionWitnessVerifier {
-    provider: ZkRessProvider<ExecutionStateWitness>,
+    provider: ZkRessProvider,
     consensus: EthBeaconConsensus<ChainSpec>,
 }
 
 impl ExecutionWitnessVerifier {
     /// Create new execution witness block verifier.
     pub fn new(
-        provider: ZkRessProvider<ExecutionStateWitness>,
+        provider: ZkRessProvider,
         consensus: EthBeaconConsensus<ChainSpec>,
     ) -> Self {
         Self { provider, consensus }
@@ -72,15 +70,38 @@ impl ExecutionWitnessVerifier {
 }
 
 impl BlockVerifier for ExecutionWitnessVerifier {
-    type Proof = ExecutionStateWitness;
-
     fn verify(
         &self,
         block: RecoveredBlock<Block>,
         parent: SealedHeader,
-        proof: Self::Proof,
+        proof: Bytes,
     ) -> Result<(), VerifierError> {
+        // Decode ExecutionStateWitness from Bytes
+        let proof = ExecutionStateWitness::decode(&mut &proof[..])
+            .map_err(|e| VerifierError::Other(Box::new(e)))?;
         let block_num_hash = block.num_hash();
+
+        // let chain_spec = self.provider.chain_spec();
+
+        // let evm_config = EthEvmConfig::new(chain_spec.clone());
+
+        // // TODO: Merge these two `ExecutionWitness` types
+        // let execution_witness = reth_stateless::ExecutionWitness {
+        //     state: proof.state,
+        //     codes: proof.bytecodes,
+        //     // Keys are not used at the moment
+        //     keys: Vec::new(),
+        //     headers: proof.headers,
+        // };
+        // reth_stateless::validation::stateless_validation(
+        //     block.clone_block(),
+        //     execution_witness,
+        //     chain_spec,
+        //     evm_config,
+        // )
+        // .map_err(|err| VerifierError::Other(Box::new(err)))?;
+
+        // return Ok(());
 
         // ===================== Pre Execution Validation =====================
         self.consensus.validate_header(block.sealed_header()).inspect_err(|error| {
@@ -114,10 +135,25 @@ impl BlockVerifier for ExecutionWitnessVerifier {
             bytecodes.insert(code_hash, bytecode);
         }
 
+        let ancestor_headers: BTreeMap<u64, B256> = proof
+            .headers
+            .iter()
+            .map(|serialized_header| {
+                let bytes = serialized_header.as_ref();
+                let header = Header::decode(&mut &bytes[..]).unwrap();
+                (header.number, header.hash_slow())
+            })
+            .collect();
+
         // ===================== Execution =====================
         let start_time = Instant::now();
-        let block_executor =
-            BlockExecutor::new(self.provider.clone(), block.parent_num_hash(), &trie, &bytecodes);
+        let block_executor = BlockExecutor::new(
+            self.provider.chain_spec(),
+            block.parent_num_hash(),
+            &trie,
+            &bytecodes,
+            ancestor_headers,
+        );
         let output = block_executor.execute(&block)?;
         debug!(target: "zk_ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
 

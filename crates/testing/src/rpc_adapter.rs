@@ -80,7 +80,7 @@ impl RpcNetworkAdapter {
             total_bytes += header.length();
             headers.push(header);
             if total_bytes > SOFT_RESPONSE_LIMIT {
-                break
+                break;
             }
         }
 
@@ -109,7 +109,7 @@ impl RpcNetworkAdapter {
             total_bytes += body.length();
             bodies.push(body);
             if bodies.len() >= MAX_BODIES_SERVE || total_bytes > SOFT_RESPONSE_LIMIT {
-                break
+                break;
             }
         }
 
@@ -158,6 +158,7 @@ impl RpcNetworkAdapter {
                                 reth_ress_protocol::ExecutionStateWitness {
                                     state: witness.state,
                                     bytecodes: witness.codes,
+                                    headers: witness.headers,
                                 }
                                 .encode(&mut encoded);
                                 encoded.freeze().into()
