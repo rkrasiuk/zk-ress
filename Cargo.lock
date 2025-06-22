@@ -11503,6 +11503,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-trie",
+ "reth-chainspec",
  "reth-evm",
  "reth-evm-ethereum",
  "reth-primitives",

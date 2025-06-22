@@ -158,6 +158,7 @@ impl RpcNetworkAdapter {
                                 reth_ress_protocol::ExecutionStateWitness {
                                     state: witness.state,
                                     bytecodes: witness.codes,
+                                    headers: witness.headers,
                                 }
                                 .encode(&mut encoded);
                                 encoded.freeze().into()

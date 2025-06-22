@@ -10,6 +10,7 @@ use reth_revm::{bytecode::Bytecode, state::AccountInfo, Database};
 use reth_trie_sparse::SparseStateTrie;
 use tracing::trace;
 use zk_ress_provider::ZkRessProvider;
+use std::collections::BTreeMap;
 
 /// EVM database implementation that uses a [`SparseStateTrie`] for account and storage data
 /// retrieval. Block hashes and bytecodes are retrieved from the [`RessProvider`].
@@ -19,6 +20,7 @@ pub struct WitnessDatabase<'a> {
     parent: BlockNumHash,
     trie: &'a SparseStateTrie,
     bytecodes: &'a B256Map<Bytecode>,
+    block_hashes : BTreeMap<u64, B256>,
 }
 
 impl<'a> WitnessDatabase<'a> {
@@ -28,8 +30,9 @@ impl<'a> WitnessDatabase<'a> {
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,
+        block_hashes : BTreeMap<u64, B256>,
     ) -> Self {
-        Self { provider, parent, trie, bytecodes }
+        Self { provider, parent, trie, bytecodes, block_hashes }
     }
 }
 
@@ -82,8 +85,9 @@ impl Database for WitnessDatabase<'_> {
     /// Get block hash by block number.
     fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
         trace!(target: "ress::evm", block_number, parent = ?self.parent, "retrieving block hash");
-        self.provider
-            .block_hash(self.parent, block_number)
+        self.block_hashes.get(&block_number).copied()
+        // self.provider
+        //     .block_hash(self.parent, block_number)
             .ok_or(ProviderError::StateForNumberNotFound(block_number))
     }
 }

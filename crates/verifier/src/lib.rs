@@ -238,10 +238,26 @@ impl BlockVerifier for ExecutionWitnessVerifier {
             bytecodes.insert(code_hash, bytecode);
         }
 
+        use reth_primitives::Header;
+        use alloy_primitives::B256;
+        use std::collections::BTreeMap;
+
+        let ancestor_hashes: BTreeMap<u64, B256> = proof
+        .headers
+        .iter()
+        .map(|serialized_header| {
+            let bytes = serialized_header.as_ref();
+            // TODO: change to result
+            let header = Header::decode(&mut &bytes[..])
+                .map_err(|error| ProviderError::TrieWitnessError(error.to_string())).unwrap();
+            (header.number, header.hash_slow())
+        })
+        .collect();
+
         // ===================== Execution =====================
         let start_time = Instant::now();
         let block_executor =
-            BlockExecutor::new(self.provider.clone(), block.parent_num_hash(), &trie, &bytecodes);
+            BlockExecutor::new(self.provider.clone(), ancestor_hashes, block.parent_num_hash(), &trie, &bytecodes);
         let output = block_executor.execute(&block)?;
         debug!(target: "zk_ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
 
