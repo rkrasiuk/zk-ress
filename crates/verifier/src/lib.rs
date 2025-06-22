@@ -7,18 +7,18 @@ use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus as _, FullConsensus, HeaderValidator as _};
 use reth_errors::{BlockExecutionError, ConsensusError, ProviderError};
 use reth_ethereum_consensus::EthBeaconConsensus;
+use reth_evm_ethereum::EthEvmConfig;
 use reth_primitives::{Block, EthPrimitives, GotExpected, RecoveredBlock, SealedHeader};
 use reth_ress_protocol::ExecutionStateWitness;
 use reth_revm::state::Bytecode;
 use reth_trie::{HashedPostState, KeccakKeyHasher};
 use reth_trie_sparse::{blinded::DefaultBlindedProviderFactory, SparseStateTrie};
 use reth_zk_ress_protocol::ExecutionProof;
+use std::sync::Arc;
 use std::time::Instant;
 use tracing::*;
 use zk_ress_evm::BlockExecutor;
 use zk_ress_provider::ZkRessProvider;
-use std::sync::Arc;
-use reth_evm_ethereum::EthEvmConfig;
 
 mod root;
 pub use root::calculate_state_root;
@@ -63,10 +63,10 @@ impl Decodable for MultiProof {
         if buf.is_empty() {
             return Err(alloy_rlp::Error::InputTooShort);
         }
-        
+
         let prover_byte = buf[0];
         *buf = &buf[1..]; // Skip the prover byte
-        
+
         match prover_byte {
             0 => {
                 // ExecutionWitness
@@ -78,7 +78,7 @@ impl Decodable for MultiProof {
                 return Err(alloy_rlp::Error::Custom("SP1 proof decoding not yet implemented"));
             }
             2 => {
-                // Risc0 - TODO: Implement when Risc0 proof type is available  
+                // Risc0 - TODO: Implement when Risc0 proof type is available
                 return Err(alloy_rlp::Error::Custom("Risc0 proof decoding not yet implemented"));
             }
             _ => {
@@ -90,12 +90,13 @@ impl Decodable for MultiProof {
 
 impl MultiProof {
     /// Create a MultiProof from a protocol name and payload.
-    pub fn from_protocol_name(protocol_name: &str, proof: ExecutionStateWitness) -> Result<Self, VerifierError> {
+    pub fn from_protocol_name(
+        protocol_name: &str,
+        proof: ExecutionStateWitness,
+    ) -> Result<Self, VerifierError> {
         match protocol_name {
             "zk-ress-execution-witness" => Ok(Self::ExecutionWitness(proof)),
-            _ => Err(VerifierError::Other(
-                format!("Unknown protocol: {}", protocol_name).into()
-            )),
+            _ => Err(VerifierError::Other(format!("Unknown protocol: {}", protocol_name).into())),
         }
     }
 }
@@ -185,14 +186,12 @@ impl BlockVerifier for MultiVerifier {
         proof: Self::Proof,
     ) -> Result<(), VerifierError> {
         match proof {
-            MultiProof::ExecutionWitness(witness_proof) => {
-                match &self.execution_verifier {
-                    Some(verifier) => verifier.verify(block, parent, witness_proof),
-                    None => Err(VerifierError::Other(
-                        "ExecutionWitness verifier has not been initialized".into()
-                    )),
-                }
-            }
+            MultiProof::ExecutionWitness(witness_proof) => match &self.execution_verifier {
+                Some(verifier) => verifier.verify(block, parent, witness_proof),
+                None => Err(VerifierError::Other(
+                    "ExecutionWitness verifier has not been initialized".into(),
+                )),
+            },
         }
     }
 }
@@ -208,35 +207,65 @@ impl BlockVerifier for ExecutionWitnessVerifier {
     ) -> Result<(), VerifierError> {
         let chain_spec = self.provider.chain_spec();
 
-        let evm_config = EthEvmConfig::new(chain_spec.clone());
+        // TODO: reth-stateless doesn't pass hive tests. Check if issue is because
+        // TODO: reth-stateless checks that the witness is complete.
+        // let evm_config = EthEvmConfig::new(chain_spec.clone());
 
-        // TODO: Merge these two `ExecutionWitness` types
-        let execution_witness = reth_stateless::ExecutionWitness {
-            state: proof.state,
-            codes: proof.bytecodes,
-            // Keys are not used at the moment
-            keys: Vec::new(),
-            headers: proof.headers,
-        };
-        reth_stateless::validation::stateless_validation(
-            block.clone_block(),
-            execution_witness,
-            chain_spec,
-            evm_config,
-        )
-        .map_err(|err| VerifierError::Other(Box::new(err)))?;
+        // // TODO: Merge these two `ExecutionWitness` types
+        // let execution_witness = reth_stateless::ExecutionWitness {
+        //     state: proof.state,
+        //     codes: proof.bytecodes,
+        //     // Keys are not used at the moment
+        //     keys: Vec::new(),
+        //     headers: proof.headers,
+        // };
+        // reth_stateless::validation::stateless_validation(
+        //     block.clone_block(),
+        //     execution_witness,
+        //     chain_spec,
+        //     evm_config,
+        // )
+        // .map_err(|err| VerifierError::Other(Box::new(err)))?;
 
-        return Ok(());
-        
-        // stateless_validation(self.provider.chain_spec(), parent, block, proof)
+        // return Ok(());
+
+        stateless_validation(self.provider.chain_spec(), block, proof)
     }
 }
 
 // TODO: Replace this method with `stateless_validation`
-fn stateless_validation(chain_spec : Arc<ChainSpec>, parent: SealedHeader, block: RecoveredBlock<Block>, proof : ExecutionStateWitness) -> Result<(), VerifierError> {
+fn stateless_validation(
+    chain_spec: Arc<ChainSpec>,
+    block: RecoveredBlock<Block>,
+    proof: ExecutionStateWitness,
+) -> Result<(), VerifierError> {
     let block_num_hash = block.num_hash();
 
     let consensus = EthBeaconConsensus::new(chain_spec.clone());
+
+    use alloy_primitives::B256;
+    use reth_primitives::Header;
+    use std::collections::BTreeMap;
+
+    let ancestor_headers: Vec<Header> = proof
+        .headers
+        .iter()
+        .map(|serialized_header| {
+            let bytes = serialized_header.as_ref();
+            // TODO: change to result
+            Header::decode(&mut &bytes[..])
+                .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))
+                .unwrap()
+        })
+        .collect();
+
+    let parent = ancestor_headers.last().expect("expected a parent header").clone();
+    let parent_hash = parent.hash_slow();
+
+    let parent = SealedHeader::new(parent, parent_hash);
+    let ancestor_hashes: BTreeMap<u64, B256> =
+        ancestor_headers.into_iter().map(|header| (header.number, header.hash_slow())).collect();
+
     // ===================== Pre Execution Validation =====================
     consensus.validate_header(block.sealed_header()).inspect_err(|error| {
         error!(target: "ress::engine", %error, "Failed to validate header");
@@ -269,26 +298,15 @@ fn stateless_validation(chain_spec : Arc<ChainSpec>, parent: SealedHeader, block
         bytecodes.insert(code_hash, bytecode);
     }
 
-    use reth_primitives::Header;
-    use alloy_primitives::B256;
-    use std::collections::BTreeMap;
-
-    let ancestor_hashes: BTreeMap<u64, B256> = proof
-    .headers
-    .iter()
-    .map(|serialized_header| {
-        let bytes = serialized_header.as_ref();
-        // TODO: change to result
-        let header = Header::decode(&mut &bytes[..])
-            .map_err(|error| ProviderError::TrieWitnessError(error.to_string())).unwrap();
-        (header.number, header.hash_slow())
-    })
-    .collect();
-
     // ===================== Execution =====================
     let start_time = Instant::now();
-    let block_executor =
-        BlockExecutor::new(chain_spec.clone(),ancestor_hashes, block.parent_num_hash(), &trie, &bytecodes);
+    let block_executor = BlockExecutor::new(
+        chain_spec.clone(),
+        ancestor_hashes,
+        block.parent_num_hash(),
+        &trie,
+        &bytecodes,
+    );
     let output = block_executor.execute(&block)?;
     debug!(target: "zk_ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
 
@@ -296,7 +314,7 @@ fn stateless_validation(chain_spec : Arc<ChainSpec>, parent: SealedHeader, block
     <EthBeaconConsensus<ChainSpec> as FullConsensus<EthPrimitives>>::validate_block_post_execution(
         &consensus,
         &block,
-        &output.result
+        &output.result,
     )?;
 
     // ===================== State Root =====================
