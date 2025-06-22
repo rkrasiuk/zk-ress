@@ -18,4 +18,5 @@ Startup up the zk-ress node: `docker compose -f docker/docker-compose.yml up -d`
 
 ## Logging
 
-- View the logs with: `docker compose -f docker/docker-compose.yml -f docker/lighthouse.yml logs -f ress`
+- View the zk-ress logs with: `docker compose -f docker/docker-compose.yml logs ress`
+- View the consensus layer logs with: `docker compose -f docker/docker-compose.yml logs consensus`
