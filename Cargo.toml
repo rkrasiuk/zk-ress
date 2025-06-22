@@ -81,85 +81,85 @@ zk-ress-testing = { path = "crates/testing" }
 zk-ress-verifier = { path = "crates/verifier" }
 
 # reth ress
-reth-ress-protocol = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ress-provider = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-zk-ress-protocol = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-zk-ress-provider = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-ress-protocol = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-ress-provider = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-zk-ress-protocol = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-zk-ress-provider = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 # reth
-reth = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 ## primitives/types
-reth-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-errors = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-primitives-traits = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-chainspec = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-storage-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 ## db
-reth-db = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-db-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-storage-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-provider = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress", features = [
+reth-db = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-db-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-storage-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-provider = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte", features = [
     "test-utils",
 ] }
 
 ## network
-reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-network-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-network = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-network-peers = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-discv4 = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-eth-wire = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-network-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-network = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-network-peers = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-discv4 = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 ## trie
-reth-trie = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-trie-sparse = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-trie = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-trie-sparse = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 ## evm
-reth-revm = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-evm = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-revm = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-evm = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 ## consensus
-reth-consensus = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ethereum-consensus = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-consensus-debug-client = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-engine-tree = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-chain-state = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-consensus = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-ethereum-consensus = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-engine-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-engine-tree = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-chain-state = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 ## rpc
-reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-engine-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-layer = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-types-compat = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc-builder = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-rpc = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-rpc-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-rpc-layer = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-rpc-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-rpc = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 ## node
-reth-node-api = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-core = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-builder = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-events = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-node-metrics = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-payload-builder = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress", features = [
+reth-node-api = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-node-core = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-node-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-node-ethereum = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-node-events = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-node-metrics = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-payload-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte", features = [
     "test-utils",
 ] }
-reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-transaction-pool = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 ## util
-reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-tasks = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-cli = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-cli-util = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-ethereum-cli = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-metrics = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
-reth-testing-utils = { git = "https://github.com/paradigmxyz/reth", branch = "zk-ress" }
+reth-tokio-util = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-tracing = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-tasks = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-cli = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-cli-util = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-metrics = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
+reth-testing-utils = { git = "https://github.com/kevaundray/reth", branch = "kw/zk-ress-encode-prover-byte" }
 
 # alloy
 alloy-primitives = { version = "1.1.0", default-features = false }

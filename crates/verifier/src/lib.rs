@@ -46,15 +46,43 @@ impl ExecutionProof for MultiProof {
 impl Encodable for MultiProof {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         match self {
-            Self::ExecutionWitness(proof) => proof.encode(out),
+            Self::ExecutionWitness(proof) => {
+                // Encode prover byte (0 for ExecutionWitness) followed by the proof
+                out.put_u8(0);
+                proof.encode(out);
+            }
         }
     }
 }
 
 impl Decodable for MultiProof {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        let proof = ExecutionStateWitness::decode(buf)?;
-        Ok(Self::ExecutionWitness(proof))
+        // Read the prover byte to determine proof type
+        if buf.is_empty() {
+            return Err(alloy_rlp::Error::InputTooShort);
+        }
+        
+        let prover_byte = buf[0];
+        *buf = &buf[1..]; // Skip the prover byte
+        
+        match prover_byte {
+            0 => {
+                // ExecutionWitness
+                let proof = ExecutionStateWitness::decode(buf)?;
+                Ok(Self::ExecutionWitness(proof))
+            }
+            1 => {
+                // SP1 - TODO: Implement when SP1 proof type is available
+                return Err(alloy_rlp::Error::Custom("SP1 proof decoding not yet implemented"));
+            }
+            2 => {
+                // Risc0 - TODO: Implement when Risc0 proof type is available  
+                return Err(alloy_rlp::Error::Custom("Risc0 proof decoding not yet implemented"));
+            }
+            _ => {
+                return Err(alloy_rlp::Error::Custom("Unknown prover type"));
+            }
+        }
     }
 }
 
