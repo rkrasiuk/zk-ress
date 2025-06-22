@@ -38,7 +38,7 @@ RUN cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked --bin z
 
 # ARG is not resolved in COPY so we have to hack around it by copying the
 # binary to a temporary location
-RUN cp /app/target/$BUILD_PROFILE/ress /app/zk-ress
+RUN cp /app/target/$BUILD_PROFILE/zk-ress /app/zk-ress
 
 # Use Ubuntu as the release image
 FROM ubuntu AS runtime
