@@ -1,6 +1,7 @@
 //! Block verifier for `zk-ress` stateless client.
 
 use alloy_primitives::{keccak256, map::B256Map};
+use alloy_rlp::{Decodable, Encodable};
 use rayon::prelude::*;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus as _, FullConsensus, HeaderValidator as _};
@@ -19,6 +20,55 @@ use zk_ress_provider::ZkRessProvider;
 
 mod root;
 pub use root::calculate_state_root;
+
+/// Multi proof wrapper that can contain different proof types.
+/// This allows the verifier to handle multiple proof types from different network protocols.
+#[derive(Debug, Clone)]
+pub enum MultiProof {
+    /// Execution witness proof from the "zk-ress-execution-witness" protocol.
+    ExecutionWitness(ExecutionStateWitness),
+}
+
+impl Default for MultiProof {
+    fn default() -> Self {
+        Self::ExecutionWitness(ExecutionStateWitness::default())
+    }
+}
+
+impl ExecutionProof for MultiProof {
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::ExecutionWitness(proof) => proof.is_empty(),
+        }
+    }
+}
+
+impl Encodable for MultiProof {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        match self {
+            Self::ExecutionWitness(proof) => proof.encode(out),
+        }
+    }
+}
+
+impl Decodable for MultiProof {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let proof = ExecutionStateWitness::decode(buf)?;
+        Ok(Self::ExecutionWitness(proof))
+    }
+}
+
+impl MultiProof {
+    /// Create a MultiProof from a protocol name and payload.
+    pub fn from_protocol_name(protocol_name: &str, proof: ExecutionStateWitness) -> Result<Self, VerifierError> {
+        match protocol_name {
+            "zk-ress-execution-witness" => Ok(Self::ExecutionWitness(proof)),
+            _ => Err(VerifierError::Other(
+                format!("Unknown protocol: {}", protocol_name).into()
+            )),
+        }
+    }
+}
 
 /// Implementation of block verification.
 ///
@@ -68,6 +118,52 @@ impl ExecutionWitnessVerifier {
         consensus: EthBeaconConsensus<ChainSpec>,
     ) -> Self {
         Self { provider, consensus }
+    }
+}
+
+/// Multi verifier that can handle multiple proof types.
+/// Routes verification to the appropriate concrete verifier based on the proof type.
+#[derive(Debug)]
+pub struct MultiVerifier {
+    execution_verifier: Option<ExecutionWitnessVerifier>,
+}
+
+impl MultiVerifier {
+    /// Create new multi verifier with all verifiers set to None.
+    pub fn new() -> Self {
+        Self { execution_verifier: None }
+    }
+
+    /// Create new multi verifier with the provided execution witness verifier.
+    pub fn with_execution_witness(execution_verifier: ExecutionWitnessVerifier) -> Self {
+        Self { execution_verifier: Some(execution_verifier) }
+    }
+
+    /// Set the execution witness verifier.
+    pub fn set_execution_witness(&mut self, verifier: ExecutionWitnessVerifier) {
+        self.execution_verifier = Some(verifier);
+    }
+}
+
+impl BlockVerifier for MultiVerifier {
+    type Proof = MultiProof;
+
+    fn verify(
+        &self,
+        block: RecoveredBlock<Block>,
+        parent: SealedHeader,
+        proof: Self::Proof,
+    ) -> Result<(), VerifierError> {
+        match proof {
+            MultiProof::ExecutionWitness(witness_proof) => {
+                match &self.execution_verifier {
+                    Some(verifier) => verifier.verify(block, parent, witness_proof),
+                    None => Err(VerifierError::Other(
+                        "ExecutionWitness verifier has not been initialized".into()
+                    )),
+                }
+            }
+        }
     }
 }
 

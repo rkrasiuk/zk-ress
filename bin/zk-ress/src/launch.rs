@@ -34,7 +34,7 @@ use tracing::*;
 use zk_ress_engine::engine::ConsensusEngine;
 use zk_ress_network::{RessNetworkHandle, RessNetworkManager};
 use zk_ress_provider::ZkRessProvider;
-use zk_ress_verifier::ExecutionWitnessVerifier;
+use zk_ress_verifier::{ExecutionWitnessVerifier, MultiVerifier, MultiProof};
 
 use crate::{cli::ZkRessArgs, rpc::RessEthRpc};
 
@@ -67,7 +67,7 @@ impl NodeLauncher {
         let data_dir = self.args.datadir.unwrap_or_chain_default(self.args.chain.chain());
 
         // Create provider.
-        let provider = ZkRessProvider::new(self.args.chain.clone());
+        let provider: ZkRessProvider<MultiProof> = ZkRessProvider::new(self.args.chain.clone());
 
         // Install the recorder to ensure that upkeep is run periodically and
         // start the metrics server.
@@ -108,7 +108,11 @@ impl NodeLauncher {
         let (to_engine, from_auth_rpc) = mpsc::unbounded_channel();
         let consensus = EthBeaconConsensus::new(self.args.chain.clone());
         let engine_validator = EthereumEngineValidator::new(self.args.chain.clone());
-        let block_verifier = ExecutionWitnessVerifier::new(provider.clone(), consensus.clone());
+        
+        // Create a separate provider for ExecutionWitnessVerifier
+        let execution_provider = ZkRessProvider::new(self.args.chain.clone());
+        let execution_verifier = ExecutionWitnessVerifier::new(execution_provider, consensus.clone());
+        let block_verifier = MultiVerifier::with_execution_witness(execution_verifier);
         let (engine_events_tx, engine_events_rx) = mpsc::unbounded_channel();
         let consensus_engine = ConsensusEngine::new(
             provider.clone(),
