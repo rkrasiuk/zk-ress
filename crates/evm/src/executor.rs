@@ -18,6 +18,8 @@ use reth_trie_sparse::SparseStateTrie;
 use zk_ress_provider::ZkRessProvider;
 use std::collections::BTreeMap;
 use alloy_primitives::B256;
+use reth_chainspec::ChainSpec;
+use std::sync::Arc;
 
 use crate::db::WitnessDatabase;
 
@@ -32,14 +34,14 @@ pub struct BlockExecutor<'a> {
 impl<'a> BlockExecutor<'a> {
     /// Instantiate new block executor with chain spec and witness database.
     pub fn new(
-        provider: ZkRessProvider<ExecutionStateWitness>,
+        chain_spec: Arc<ChainSpec>,
         block_hashes : BTreeMap<u64, B256>,
         parent: BlockNumHash,
         trie: &'a SparseStateTrie,
         bytecodes: &'a B256Map<Bytecode>,
     ) -> Self {
-        let evm_config = EthEvmConfig::new(provider.chain_spec());
-        let db = WitnessDatabase::new(provider, parent, trie, bytecodes, block_hashes);
+        let evm_config = EthEvmConfig::new(chain_spec);
+        let db = WitnessDatabase::new(parent, trie, bytecodes, block_hashes);
         let state =
             State::builder().with_database(db).with_bundle_update().without_state_clear().build();
         Self { evm_config, state }

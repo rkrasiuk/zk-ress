@@ -17,6 +17,7 @@ use std::time::Instant;
 use tracing::*;
 use zk_ress_evm::BlockExecutor;
 use zk_ress_provider::ZkRessProvider;
+use std::sync::Arc;
 
 mod root;
 pub use root::calculate_state_root;
@@ -204,17 +205,15 @@ impl BlockVerifier for ExecutionWitnessVerifier {
         parent: SealedHeader,
         proof: Self::Proof,
     ) -> Result<(), VerifierError> {
-        stateless_validation(self.provider.clone(), parent, block, proof)
+        stateless_validation(self.provider.chain_spec(), parent, block, proof)
     }
 }
 
 // TODO: Replace this method with `stateless_validation`
-fn stateless_validation(provider: ZkRessProvider<ExecutionStateWitness>, parent: SealedHeader, block: RecoveredBlock<Block>, proof : ExecutionStateWitness) -> Result<(), VerifierError> {
+fn stateless_validation(chain_spec : Arc<ChainSpec>, parent: SealedHeader, block: RecoveredBlock<Block>, proof : ExecutionStateWitness) -> Result<(), VerifierError> {
     let block_num_hash = block.num_hash();
 
-    let consensus = EthBeaconConsensus::new(provider.chain_spec());
-    let chain_spec = provider.chain_spec();
-    
+    let consensus = EthBeaconConsensus::new(chain_spec.clone());
     // ===================== Pre Execution Validation =====================
     consensus.validate_header(block.sealed_header()).inspect_err(|error| {
         error!(target: "ress::engine", %error, "Failed to validate header");
@@ -266,7 +265,7 @@ fn stateless_validation(provider: ZkRessProvider<ExecutionStateWitness>, parent:
     // ===================== Execution =====================
     let start_time = Instant::now();
     let block_executor =
-        BlockExecutor::new(provider.clone(), ancestor_hashes, block.parent_num_hash(), &trie, &bytecodes);
+        BlockExecutor::new(chain_spec.clone(),ancestor_hashes, block.parent_num_hash(), &trie, &bytecodes);
     let output = block_executor.execute(&block)?;
     debug!(target: "zk_ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
 
