@@ -3,3 +3,4 @@
 *.db
 /fixtures/*
 proptest-regressions/
+vendor
