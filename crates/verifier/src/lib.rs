@@ -204,82 +204,90 @@ impl BlockVerifier for ExecutionWitnessVerifier {
         parent: SealedHeader,
         proof: Self::Proof,
     ) -> Result<(), VerifierError> {
-        let block_num_hash = block.num_hash();
-
-        // ===================== Pre Execution Validation =====================
-        self.consensus.validate_header(block.sealed_header()).inspect_err(|error| {
-            error!(target: "ress::engine", %error, "Failed to validate header");
-        })?;
-
-        self.consensus.validate_block_pre_execution(&block).inspect_err(|error| {
-            error!(target: "ress::engine", %error, "Failed to validate block");
-        })?;
-
-        self.consensus.validate_header_against_parent(block.sealed_header(), &parent).inspect_err(
-            |error| {
-                error!(target: "ress::engine", %error, "Failed to validate header against parent");
-            },
-        )?;
-
-        // ===================== Witness =====================
-        let mut trie = SparseStateTrie::new(DefaultBlindedProviderFactory);
-        let mut state_witness = B256Map::default();
-        for encoded in proof.state {
-            state_witness.insert(keccak256(&encoded), encoded);
-        }
-
-        trie.reveal_witness(parent.state_root, &state_witness)
-            .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))?;
-
-        let mut bytecodes = B256Map::default();
-        for bytes in proof.bytecodes {
-            let bytecode = Bytecode::new_raw(bytes);
-            let code_hash = bytecode.hash_slow();
-            bytecodes.insert(code_hash, bytecode);
-        }
-
-        use reth_primitives::Header;
-        use alloy_primitives::B256;
-        use std::collections::BTreeMap;
-
-        let ancestor_hashes: BTreeMap<u64, B256> = proof
-        .headers
-        .iter()
-        .map(|serialized_header| {
-            let bytes = serialized_header.as_ref();
-            // TODO: change to result
-            let header = Header::decode(&mut &bytes[..])
-                .map_err(|error| ProviderError::TrieWitnessError(error.to_string())).unwrap();
-            (header.number, header.hash_slow())
-        })
-        .collect();
-
-        // ===================== Execution =====================
-        let start_time = Instant::now();
-        let block_executor =
-            BlockExecutor::new(self.provider.clone(), ancestor_hashes, block.parent_num_hash(), &trie, &bytecodes);
-        let output = block_executor.execute(&block)?;
-        debug!(target: "zk_ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
-
-        // ===================== Post Execution Validation =====================
-        <EthBeaconConsensus<ChainSpec> as FullConsensus<EthPrimitives>>::validate_block_post_execution(
-            &self.consensus,
-            &block,
-            &output.result
-        )?;
-
-        // ===================== State Root =====================
-        let hashed_state =
-            HashedPostState::from_bundle_state::<KeccakKeyHasher>(output.state.state.par_iter());
-        let state_root = calculate_state_root(&mut trie, hashed_state)
-            .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))?;
-        if state_root != block.state_root {
-            return Err(ConsensusError::BodyStateRootDiff(
-                GotExpected { got: state_root, expected: block.state_root }.into(),
-            )
-            .into());
-        }
-
-        Ok(())
+        stateless_validation(self.provider.clone(), parent, block, proof)
     }
+}
+
+// TODO: Replace this method with `stateless_validation`
+fn stateless_validation(provider: ZkRessProvider<ExecutionStateWitness>, parent: SealedHeader, block: RecoveredBlock<Block>, proof : ExecutionStateWitness) -> Result<(), VerifierError> {
+    let block_num_hash = block.num_hash();
+
+    let consensus = EthBeaconConsensus::new(provider.chain_spec());
+    let chain_spec = provider.chain_spec();
+    
+    // ===================== Pre Execution Validation =====================
+    consensus.validate_header(block.sealed_header()).inspect_err(|error| {
+        error!(target: "ress::engine", %error, "Failed to validate header");
+    })?;
+
+    consensus.validate_block_pre_execution(&block).inspect_err(|error| {
+        error!(target: "ress::engine", %error, "Failed to validate block");
+    })?;
+
+    consensus.validate_header_against_parent(block.sealed_header(), &parent).inspect_err(
+        |error| {
+            error!(target: "ress::engine", %error, "Failed to validate header against parent");
+        },
+    )?;
+
+    // ===================== Witness =====================
+    let mut trie = SparseStateTrie::new(DefaultBlindedProviderFactory);
+    let mut state_witness = B256Map::default();
+    for encoded in proof.state {
+        state_witness.insert(keccak256(&encoded), encoded);
+    }
+
+    trie.reveal_witness(parent.state_root, &state_witness)
+        .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))?;
+
+    let mut bytecodes = B256Map::default();
+    for bytes in proof.bytecodes {
+        let bytecode = Bytecode::new_raw(bytes);
+        let code_hash = bytecode.hash_slow();
+        bytecodes.insert(code_hash, bytecode);
+    }
+
+    use reth_primitives::Header;
+    use alloy_primitives::B256;
+    use std::collections::BTreeMap;
+
+    let ancestor_hashes: BTreeMap<u64, B256> = proof
+    .headers
+    .iter()
+    .map(|serialized_header| {
+        let bytes = serialized_header.as_ref();
+        // TODO: change to result
+        let header = Header::decode(&mut &bytes[..])
+            .map_err(|error| ProviderError::TrieWitnessError(error.to_string())).unwrap();
+        (header.number, header.hash_slow())
+    })
+    .collect();
+
+    // ===================== Execution =====================
+    let start_time = Instant::now();
+    let block_executor =
+        BlockExecutor::new(provider.clone(), ancestor_hashes, block.parent_num_hash(), &trie, &bytecodes);
+    let output = block_executor.execute(&block)?;
+    debug!(target: "zk_ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
+
+    // ===================== Post Execution Validation =====================
+    <EthBeaconConsensus<ChainSpec> as FullConsensus<EthPrimitives>>::validate_block_post_execution(
+        &consensus,
+        &block,
+        &output.result
+    )?;
+
+    // ===================== State Root =====================
+    let hashed_state =
+        HashedPostState::from_bundle_state::<KeccakKeyHasher>(output.state.state.par_iter());
+    let state_root = calculate_state_root(&mut trie, hashed_state)
+        .map_err(|error| ProviderError::TrieWitnessError(error.to_string()))?;
+    if state_root != block.state_root {
+        return Err(ConsensusError::BodyStateRootDiff(
+            GotExpected { got: state_root, expected: block.state_root }.into(),
+        )
+        .into());
+    }
+
+    Ok(())
 }
