@@ -18,6 +18,7 @@ use tracing::*;
 use zk_ress_evm::BlockExecutor;
 use zk_ress_provider::ZkRessProvider;
 use std::sync::Arc;
+use reth_evm_ethereum::EthEvmConfig;
 
 mod root;
 pub use root::calculate_state_root;
@@ -205,7 +206,29 @@ impl BlockVerifier for ExecutionWitnessVerifier {
         parent: SealedHeader,
         proof: Self::Proof,
     ) -> Result<(), VerifierError> {
-        stateless_validation(self.provider.chain_spec(), parent, block, proof)
+        let chain_spec = self.provider.chain_spec();
+
+        let evm_config = EthEvmConfig::new(chain_spec.clone());
+
+        // TODO: Merge these two `ExecutionWitness` types
+        let execution_witness = reth_stateless::ExecutionWitness {
+            state: proof.state,
+            codes: proof.bytecodes,
+            // Keys are not used at the moment
+            keys: Vec::new(),
+            headers: proof.headers,
+        };
+        reth_stateless::validation::stateless_validation(
+            block.clone_block(),
+            execution_witness,
+            chain_spec,
+            evm_config,
+        )
+        .map_err(|err| VerifierError::Other(Box::new(err)))?;
+
+        return Ok(());
+        
+        // stateless_validation(self.provider.chain_spec(), parent, block, proof)
     }
 }
 
